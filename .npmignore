@@ -1,6 +1,0 @@
-node_modules/
-core/
-unit.test.mjs
-unit.test.mts
-npm.build.mjs
-tsconfig.json
