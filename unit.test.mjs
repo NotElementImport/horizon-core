@@ -7,4 +7,5 @@ const test = comp((_, { text }) => {
 
 const app = defineApp()
 await render(app, test)
+// Test commit
 console.log(toDomString(app.composable))
