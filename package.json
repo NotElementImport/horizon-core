@@ -1,0 +1,36 @@
+{
+  "name": "horizon-core",
+  "version": "0.1.0-alpha10",
+  "description": "Frontend web framework `Horizon`",
+  "homepage": "https://github.com/NotElementImport/horizon-core",
+  "main": "index.js",
+  "exports": {
+    ".": {
+      "types": "./types/app.d.ts",
+      "default": "./bundle/app.mjs"
+    },
+    "./component": {
+      "types": "./types/component.d.ts",
+      "default": "./bundle/component.mjs"
+    },
+    "./composables": {
+      "types": "./types/composables.d.ts",
+      "default": "./bundle/composables.mjs"
+    },
+    "./helpers": {
+      "types": "./types/helpers.d.ts",
+      "default": "./bundle/helpers.mjs"
+    },
+    "./state": {
+      "types": "./types/stateble.d.ts",
+      "default": "./bundle/stateble.mjs"
+    }
+  },
+  "scripts": {
+    "start": "node ./npm.build.mjs -esm&&npx tsc -p .\\tsconfig.json",
+    "test": "ts-node-esm --transpileOnly ./unit.test.mts",
+    "poststart": ""
+  },
+  "author": "Panteleev Kirill",
+  "license": "ISC"
+}
