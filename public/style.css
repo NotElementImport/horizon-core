@@ -1,0 +1,162 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
+:root {
+  --font-base: "Inter", sans-serif;
+
+  --bg-a: #1b1b1f;
+  --bg-d: #141414;
+  --bg-g: #222227;
+
+  --tx-a: #fffff5c0;
+  --tx-c: #dba661;
+  --tx-t: #e2c49ce1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-a);
+  font-family: var(--font-base);
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+#app {
+  position: relative;
+  width: 100%;
+  margin-bottom: 6em;
+}
+
+.app__layout {
+  width: min(650px, 100%);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+.app__title {
+  font-size: 36px;
+  font-weight: bold;
+  color: var(--tx-a);
+
+  display: flex;
+  justify-content: center;
+  margin-block: 1em;
+}
+.app__title__sub {
+  text-transform: uppercase;
+  color: var(--tx-c);
+}
+
+.island {
+  padding: 1em;
+  border-radius: 1em;
+  background: var(--bg-g);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+.section__title {
+  color: var(--tx-t);
+  font-family: 600;
+  padding-bottom: 0.5em;
+  border-bottom: 3px solid var(--bg-a);
+}
+.section__desc {
+  color: var(--tx-a);
+}
+.section__wrapper {
+  background: var(--bg-a);
+  border-radius: 0.5em;
+  padding: 1em;
+  padding-top: 2.5em;
+  color: var(--tx-a);
+  position: relative;
+}
+.section__wrapper::before {
+  position: absolute;
+  color: white;
+  opacity: 0.1;
+  top: 0.5em;
+  left: 0.8em;
+  font-size: 14px;
+  content: 'Demo Playground :';
+}
+
+.demo__button {
+  user-select: none;
+  cursor: pointer;
+  background: var(--bg-g);
+  color: var(--tx-a);
+  padding: 1em 1.5em;
+  border: none;
+  border-radius: 50em;
+  transition: background 0.05s ease;
+  box-shadow: 0px 2px 5px #00000028;
+}
+
+.demo__button:active {
+  background: color-mix(in srgb, 10% var(--tx-t), var(--bg-g));
+  color: var(--tx-c);
+}
+
+.todo {
+  position: relative;
+  padding: 0.5em;
+}
+.todo.complete {
+  background: var(--bg-g);
+}
+.todo.complete::after {
+  content: "";
+  display:block;
+  height: 16px;
+  width: 16px;
+  background-size: 16px 16px;
+  background-image: url('https://www.svgrepo.com/show/356736/checkmark.svg');
+  background-repeat: no-repeat;
+  position: absolute;
+  top: 50%;
+  right: 0.8em;
+  transform: translateY(-50%);
+}
+.todos__header {
+  display: flex;
+  flex-direction: row;
+}
+.todos__header button {
+  user-select: none;
+  cursor: pointer;
+  background: var(--bg-g);
+  color: var(--tx-a);
+  padding: 0.8em 1.2em;
+  border: none;
+  border-top-left-radius: 50em;
+  border-bottom-left-radius: 50em;
+  transition: background 0.05s ease;
+  box-shadow: 0px 2px 5px #00000028;
+}
+.todos__header input {
+  padding: 0.8em 1.2em;
+  flex: 1 1;
+  color: var(--tx-a);
+  border: none;
+  box-shadow: 0px 2px 5px #00000028;
+  background: var(--bg-g);
+  border-top-right-radius: 50em;
+  border-bottom-right-radius: 50em;
+  width: max-content;
+  outline: none;
+}
+.todos__header input:focus {
+  background: color-mix(in srgb, var(--bg-g) 25%, var(--bg-a));
+}
+.todos__content {
+  margin-top: 1em; 
+  overflow: hidden; 
+  border-radius: 0.25em;
+}

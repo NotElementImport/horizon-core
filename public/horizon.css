@@ -1,0 +1,6 @@
+span[data-textbox=true] {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
