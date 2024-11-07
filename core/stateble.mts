@@ -27,10 +27,21 @@ const sharedSignals = new Map<string, ISignal<any, any>>()
 const sWatch = Symbol()
 const sValue = Symbol()
 const sAsRaw = Symbol()
+const fakeNull = 'null'
+
+export const clearStateHeap = () =>
+    sharedSignals.clear()
 
 export const useSignal = <T extends unknown, K = T>(
     value: T, 
-    config: { key?: string, asRaw?: (v: T) => K } = {}
+    config: { 
+        key?: string
+        asRaw?: (v: T) => K
+        onSet?: (v: T) => void
+        onInit?: (signal: Signal.Signal<T, K>) => void 
+    } = {
+        onSet: (v) => {}
+    }
 ): Signal.Signal<T, K> => {
     if(config.key && sharedSignals.has(config.key))
         return sharedSignals.get(config.key) as any
@@ -50,7 +61,7 @@ export const useSignal = <T extends unknown, K = T>(
         },
         get value() {
             // @ts-ignore
-            return value.asWeakRef({
+            return (value ?? fakeNull).asWeakRef({
                 value: () => value,
                 set: (v: T) => signal.value = v,
                 path: '$',
@@ -62,11 +73,12 @@ export const useSignal = <T extends unknown, K = T>(
             value = useProxy(v, ['$'])
             parentSetter(v)
             useEffect(value, ['$'])
+            config.onSet?.(v)
         }
     }
 
     // @ts-ignore
-    if(value.hasWeakRef()) {
+    if((value ?? null) != null && value.hasWeakRef()) {
         const { set } = fromWeakRef(value, false)
         parentSetter = set
         watch(value, 
@@ -85,6 +97,8 @@ export const useSignal = <T extends unknown, K = T>(
 
         const proxy = (new Proxy(raw, {
             get(target, p) {
+                if(p == 'toString')
+                    return () => JSON.stringify(raw)
                 if(p in target) {
                     const data = target[p] ?? null
                     return data.asWeakRef({
@@ -114,6 +128,9 @@ export const useSignal = <T extends unknown, K = T>(
     }
 
     value = useProxy(value, ['$'])
+
+    // @ts-ignore
+    if(config.onInit) config.onInit(signal)
 
     if(config.key)
         sharedSignals.set(config.key, signal)

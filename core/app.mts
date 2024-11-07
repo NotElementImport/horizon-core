@@ -26,6 +26,8 @@ export interface IHorizonApp {
     pipeTo(composable: Primitive.ComponentNode<any>, index: number, parent?: Primitive.ComponentNode<any>): void
     lead(composable: Primitive.ComponentNode<any>, handle: () => (Promise<void>|void)): Promise<void>
 
+    clearHeap(): void
+
     stack: IStack
 }
 
@@ -62,6 +64,13 @@ export function defineApp(): IHorizonApp {
     let hydrateMeta    = '$'
 
     const $instance: IHorizonApp = {
+        clearHeap() {
+            hydrateCounter = 0
+            hydrateMeta = '$'
+            currentComposable = $app
+            $app.dom = null as any
+        },
+
         get stack() { return stack },
         set stack(v) { stack = v },
 
@@ -135,18 +144,23 @@ export async function render<T extends Record<string, any>>(app: IHorizonApp, co
 
     await app.lead(comp.composable, () => {
         const $nodes = {
-            slot() {
+            slot(args: any = {}) {
                 const stack = app.stack
                 const parent = app.leadComposable
-                const initMeta = app.hydMeta
+                const initMeta = app.hydMeta+app.hydCounter+'slt';
+                const myCounter = app.hydCounter
                 stack.push(async () => {
                     const currentMeta = app.hydMeta
+                    const oldCounter = app.hydCounter
+                    app.hydCounter = myCounter;
                     app.hydMeta = initMeta
                     await app.lead(parent, async () => {
-                        await (props as any).slot()
+                        await (props as any).slot(args)
                     })
                     app.hydMeta = currentMeta
+                    app.hydCounter = oldCounter;
                 })
+                app.hydCounter += 1
             },
             use(other: Component.Component, props: object = {}, slot: (() => void) = () => {}) {
                 const stack = app.stack

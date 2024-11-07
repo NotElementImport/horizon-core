@@ -1,19 +1,16 @@
 import { Component, Props } from "../type"
 import { currentApp, render, useComposite } from "./app.mjs"
 
-export function comp<P extends object>(
-    slot: Component.ComponentHandler<P>
-): Component.Component<P> {
+export function comp<P extends object, S extends object>(
+    slot: Component.ComponentHandler<P, S>
+): Component.Component<P, S> {
     const $composable = useComposite(null, {})
-    return {
-        slot,
-        get composable() { return $composable }
-    }
+    return { slot, get composable() { return $composable } }
 }
 
-export function mod<P extends object>(
-    slot: Component.ComponentHandler<P>
-): Component.Module<P> {
+export function mod<P extends object, S extends object>(
+    slot: Component.ComponentHandler<P, S>
+): Component.Module<P, S> {
     const $composable = useComposite(null, {})
 
     return (props: P = {} as P, $slot: Function = () => {}) => {

@@ -49,13 +49,13 @@ export namespace Composable {
 }
 
 export namespace Component {
-    interface Component<P extends Record<string, any> = {}> {
+    interface Component<P extends Record<string, any> = {}, S extends Record<string, any> = {}> {
         readonly composable: Primitive.ComponentNode<null>
         slot: CompSlot<P>
     }
 
-    type Module<P extends Record<string, any> = {}> =
-        (props?: P, slot?: () => void) => void
+    type Module<P extends Record<string, any> = {}, S extends Record<string, any> = {}> =
+        (props?: P, slot?: (agrs: S) => void) => void
 
     interface AtomResponse {
         dom: HTMLElement
@@ -69,24 +69,25 @@ export namespace Component {
     }
 
     interface AtomBasicConfig {
-        style?: Props.WithSignal<CSSStyleDeclaration|{}|string>
+        style?: Props.WithSignal<CSSStyleDeclaration|{}>
+        style?: Props.WithSignal<string>
         class?: Props.WithSignal<string[]>
         id?:    Props.WithSignal<string|number>
     }
 
-    interface AtomList {
+    interface AtomList<S extends Record<string, any>> {
         $(type: keyof HTMLElementTagNameMap, props?: AtomBasicConfig, slot?: (node: AtomResponse) => void): AtomResponse
         img(src: Props.WithSignal<string>, props: AtomBasicConfig): AtomResponse
         div(props: AtomBasicConfig, slot?: (node: AtomResponse) => void): AtomResponse
         slide(firstStage: Component.Slot, secondStage: Component.Slot): { dom: HTMLElement, withTimer(sec: number): void, toMain(): void, toSecond(): void }
         text(content: Props.WithSignal<unknown>, props?: AtomBasicConfig): AtomResponse
-        use<T extends object>(other: IComponent<T>, props?: T, slot?: () => void): void
-        slot(): void
+        use<T extends object, S extends object>(other: Component.Component<T, S>, props?: T, slot?: (args: S) => void): void
+        slot(args: S): void
         dyn(follower: Props.WithSignal<any>[], handle: () => void|Promise<void>): void
         // list<T>(item: LikeState<T[]>, config: IList, handle: (item: T) => void|Promise<void>): void
     }
 
-    type ComponentHandler<P> = (props: P, atoms: AtomList) => void
+    type ComponentHandler<P, S> = (props: P, atoms: AtomList<S>) => void
 
     type Slot = () => void
 }

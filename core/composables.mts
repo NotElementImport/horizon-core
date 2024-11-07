@@ -1,7 +1,7 @@
 import { Composable } from "../type"
 import { isClient } from "./app.mjs"
 import { useStylePrettify } from "./helpers.mjs"
-import { ISignal, useProxySignal, useSignal } from "./stateble.mjs"
+import { ISignal, useProxySignal, useSignal, watch } from "./stateble.mjs"
 
 type StyleSignal = CSSStyleDeclaration
 type StyleStringSignal = ISignal<string, string>
@@ -19,26 +19,54 @@ export const useStyle = <T extends CSSStyleDeclaration|{}|string>(object: T): T 
 }
 
 export const useColorSheme = (config: { get?: () => Composable.ColorSheme, set?: (v: Composable.ColorSheme) => void } = {}) => {
-    const signal = useSignal<Composable.ColorSheme>(
-        config.get ? (config.get() ?? 'light') : 'light',
-        { key: 'client-system-theme' }
-    )
-
-    const updateTheme = (value: boolean) => {
-        signal.value = value ? "dark" : "light"
-        if(config.set) config.set(value ? "dark" : "light")
-    }
-
-    if(isClient) {
-        updateTheme(window.matchMedia('(prefers-color-scheme: dark)').matches)
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => updateTheme(event.matches))
-    }
-
-    return signal
+    return useSignal<Composable.ColorSheme>(
+        config.get ? (config.get() ?? 'light') : 'light', {
+            key: 'client-system-theme',
+            onSet(v) { if(config.set) config.set(v) },
+            onInit(signal) {
+                if(isClient) {
+                    signal.value = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+                    window.matchMedia('(prefers-color-scheme: dark)')
+                        .addEventListener('change', event => signal.value = event.matches ? 'dark' : 'light')
+                }
+            },
+        })
 }
 
-export const useDocumentBody = (handle?: (dom: HTMLBodyElement) => void) => {
+export const useScrollLock = () => {
+    return useSignal(false, {
+        key: 'client-system-scroll-lock',
+        onSet(v) {useDocumentBody(body => {
+            body.style.overflow = v ? 'hidden' : 'unset' 
+        })}
+    })
+}
+
+export const useLocalStorage = <T extends any>(
+    key: string, 
+    { defaultValue = null as T }: { defaultValue?: T } = {}
+) => {
+    return useSignal<T>(null as T, {
+        key,
+        onInit(signal) {
+            watch(signal, (v) => localStorage.setItem(key, JSON.stringify(v)), { deep: true })      
+
+            if(isClient)
+                signal.value = JSON.parse(localStorage.getItem(key) ?? 'null') ?? defaultValue
+            else
+                signal.value = defaultValue
+        }
+    })
+}
+
+export const useDocumentHtml = (handle: (dom: HTMLHtmlElement) => void) => {
+    if(!isClient)
+        return void 0
+    handle(document.body.parentElement as HTMLHtmlElement)
+}
+
+export const useDocumentBody = (handle: (dom: HTMLBodyElement) => void) => {
     if(!isClient)
         return null
-    return handle ? handle(document.body as HTMLBodyElement) : document.body
+    handle(document.body as HTMLBodyElement)
 }
