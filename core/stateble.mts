@@ -1,10 +1,6 @@
 import { useId } from "./helpers.mjs";
 import type { Primitive, Signal } from "../type";
-
-export interface ISignal<T, K> {
-    value: T
-    readonly asRaw: K
-}
+import { currentApp } from "./app.mjs";
 
 // @ts-ignore
 if(!Object.asWeakRef) {
@@ -23,7 +19,7 @@ if(!Object.asWeakRef) {
     }
 }
 
-const sharedSignals = new Map<string, ISignal<any, any>>()
+const sharedSignals = new Map<string, Signal.Signal<any, any>>()
 const sWatch = Symbol()
 const sValue = Symbol()
 const sAsRaw = Symbol()
@@ -34,7 +30,8 @@ export const clearStateHeap = () =>
 
 export const useSignal = <T extends unknown, K = T>(
     value: T, 
-    config: { 
+    config: {
+        devExpose?: string
         key?: string
         asRaw?: (v: T) => K
         onSet?: (v: T) => void
@@ -134,6 +131,9 @@ export const useSignal = <T extends unknown, K = T>(
 
     if(config.key)
         sharedSignals.set(config.key, signal)
+    if(config.devExpose && (currentApp?.isDev ?? false))
+        // @ts-ignore
+        globalThis[config.devExpose] = signal
 
     return signal as any
 }
@@ -243,7 +243,7 @@ export const fromWeakRef = <T extends unknown>(
     return { value: () => data, set: (v: any) => data = v, path: '', pathIndex: 0, signal: null }
 }
 
-export const useStrongRef = <T extends unknown, K = T>(value: T|Signal.Signal<T, K>, handle: (raw: K, unwatch: () => void) => void) => {
+export const useStrongRef = <T extends unknown, K = T>(value: T|Signal.Signal<T, K>, handle: (raw: K, unwatch: () => void) => void, forceDeep = false) => {
     if(isSignal(value)) {
         // @ts-ignore
         handle(value[sAsRaw], () => void 0)
@@ -252,7 +252,7 @@ export const useStrongRef = <T extends unknown, K = T>(value: T|Signal.Signal<T,
         return unwatch
     }
     handle(value as any, () => void 0)
-    const unwatch = watch(value, (val) => handle(val as any, unwatch), { flush: 'sync' })
+    const unwatch = watch(value, (val) => handle(val as any, unwatch), { flush: 'sync', deep: forceDeep })
     return unwatch
 }
 

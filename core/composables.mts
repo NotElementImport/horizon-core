@@ -1,12 +1,12 @@
-import { Composable } from "../type"
+import { Composable, CSS, Signal } from "../type"
 import { isClient } from "./app.mjs"
 import { useStylePrettify } from "./helpers.mjs"
-import { ISignal, useProxySignal, useSignal, watch } from "./stateble.mjs"
+import { useProxySignal, useSignal, watch } from "./stateble.mjs"
 
-type StyleSignal = CSSStyleDeclaration
-type StyleStringSignal = ISignal<string, string>
+type StyleSignal = CSS.Style
+type StyleStringSignal = Signal.Signal<string, string>
 
-export const useStyle = <T extends CSSStyleDeclaration|{}|string>(object: T): T extends string ? StyleStringSignal : StyleSignal => {
+export const useStyle = <T extends CSS.Style|string>(object: T): T extends string ? StyleStringSignal : StyleSignal => {
     const signal = useSignal(object, 
         { asRaw: (v) => useStylePrettify(v) }
     )

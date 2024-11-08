@@ -1,10 +1,12 @@
-import { defineApp, render, toDomString } from "./bundle/app.mjs";
-import { comp } from "./bundle/component.mjs";
+import { defineApp, render } from './bundle/app.mjs'
+import { comp } from './bundle/component.mjs'
 
-const test = comp((_, { text }) => {
-    text('Test text')
+const app = defineApp({ devMode: true })
+
+const compn = comp((_, { div }) => {
+    div({
+        style: {}
+    })
 })
 
-const app = defineApp()
-await render(app, test)
-console.log(toDomString(app.composable))
+render(app, compn)

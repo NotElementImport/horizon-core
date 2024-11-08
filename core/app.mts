@@ -19,6 +19,8 @@ export interface IHorizonApp {
     get hydMeta(): string
     set hydMeta(v: string)
 
+    readonly isDev: boolean
+
     pipe(composable: Primitive.ComponentNode<any>, parent?: Primitive.ComponentNode<any>): void
     domPipe(dom: HTMLElement|Element, parent?: Primitive.ComponentNode<any>): void
     domPipeTo(dom: HTMLElement|Element, index: number, parent?: Primitive.ComponentNode<any>): void
@@ -53,7 +55,9 @@ export function useComposite<K extends PropertyKey|null>(
 
 export let currentApp: IHorizonApp = null as any
 
-export function defineApp(): IHorizonApp {
+export function defineApp(conifg: {
+    devMode?: boolean
+} = {}): IHorizonApp {
     const $app = useComposite(null, {})
 
     let stack = useStack()
@@ -70,6 +74,8 @@ export function defineApp(): IHorizonApp {
             currentComposable = $app
             $app.dom = null as any
         },
+
+        get isDev() { return conifg.devMode ?? false },
 
         get stack() { return stack },
         set stack(v) { stack = v },
@@ -595,11 +601,11 @@ export function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, a
             else if(key == 'style')
                 useStrongRef(value, (v) => {
                     dom.setAttribute('style', useStylePrettify(v)) 
-                })
+                }, true)
             else if(key == 'class')
                 useStrongRef(value, (v) => {
                     dom.setAttribute('class', Array.isArray(v) ? v.join(' ') : v) 
-                })
+                }, true)
             else
                 useStrongRef(value, (v, unwatch) => {
                     if(isDeleted()) return unwatch()

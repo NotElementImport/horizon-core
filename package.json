@@ -24,11 +24,15 @@
     "./state": {
       "types": "./types/stateble.d.ts",
       "default": "./bundle/stateble.mjs"
+    },
+    "./@types": {
+      "types": "./type.d.ts",
+      "default": "./type.d.ts"
     }
   },
   "scripts": {
-    "start": "node ./npm.build.mjs -esm&&npx tsc -p .\\tsconfig.json",
-    "test": "ts-node-esm --transpileOnly ./unit.test.mts",
+    "start": "node ./npm.build.mjs -esm&&npx tsc -p ./tsconfig.json",
+    "test": "node ./unit.test.mjs",
     "poststart": ""
   },
   "author": "Panteleev Kirill",
