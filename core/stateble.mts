@@ -19,6 +19,9 @@ if(!Object.asWeakRef) {
     }
 }
 
+let signalListener: any[] = []
+let isSignalListener = false
+
 const sharedSignals = new Map<string, Signal.Signal<any, any>>()
 const sWatch = Symbol()
 const sValue = Symbol()
@@ -58,13 +61,18 @@ export const useSignal = <T extends unknown, K = T>(
         },
         get value() {
             // @ts-ignore
-            return (value ?? fakeNull).asWeakRef({
+            const rawValue = (value ?? fakeNull).asWeakRef({
                 value: () => value,
                 set: (v: T) => signal.value = v,
                 path: '$',
                 pathIndex: 0,
                 signal
             })
+
+            if(isSignalListener)
+                signalListener.push(rawValue)
+
+            return rawValue
         },
         set value(v) {
             value = useProxy(v, ['$'])
@@ -97,14 +105,16 @@ export const useSignal = <T extends unknown, K = T>(
                 if(p == 'toString')
                     return () => JSON.stringify(raw)
                 if(p in target) {
-                    const data = target[p] ?? null
-                    return data.asWeakRef({
+                    const rawValue = (target[p] ?? 'null').asWeakRef({
                         value: () => target[p],
                         set: (v: T) => proxy[p] = v,
                         path: p,
                         pathIndex: path.length,
                         signal
                     })
+                    if(isSignalListener)
+                        signalListener.push(rawValue)
+                    return rawValue
                 }
                 return null
             },
@@ -138,15 +148,22 @@ export const useSignal = <T extends unknown, K = T>(
     return signal as any
 }
 
-// export const useComputed = <T extends unknown>(signals: ISignal<any, any>, handle: () => T) => {
-//     const signal = useSignal(null)
+export const useComputed = <T extends any>(handle: () => T) => {
+    return useSignal<T>(null as T, {
+        onInit(signal) {
+            isSignalListener = true
+            signalListener   = []
 
-//     return {
-//         // @ts-ignore
-//         [sWatch]: signal[sWatch],
-//         get value() { return signal.value }
-//     }
-// }
+            signal.value = handle()
+
+            for (const item of signalListener)
+                watch(item, () => signal.value = handle())
+
+            isSignalListener = false
+            signalListener   = []
+        }
+    })
+}
 
 export const useProxySignal = <T extends Primitive.LikeProxy>(
     signal: Signal.Signal<any>, 

@@ -1,25 +1,12 @@
 import { defineRepositoryFactory } from './core/repository.mjs'
+import { useComputed, useSignal } from './core/stateble.mjs'
 
-class Person {
-    public firstName = ''
-    public lastName = ''
-    public middleName = ''
+const valueOne = useSignal('My name')
+const valueTwo = useSignal('My name')
+const comput   = useComputed(() => 
+    `${valueOne.value} is ${valueTwo.value}`
+)
 
-    constructor(name: string) {
-        const [ 
-            lastName = '',
-            firstName = '',
-            middleName = '' 
-        ] = name.trim().split(' ')
-    
-        this.firstName = firstName
-        this.lastName = lastName
-        this.middleName = middleName
-    }
-
-    toString() {
-        return `${this.lastName} ${this.firstName} ${this.middleName}`
-    }
-}
-
-const usePerson = defineRepositoryFactory(Person)
+console.log(comput.value)
+valueTwo.value = 'shit'
+console.log(comput.value)
