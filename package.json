@@ -32,7 +32,7 @@
   },
   "scripts": {
     "start": "node ./npm.build.mjs -esm&&npx tsc -p ./tsconfig.json",
-    "test": "node ./unit.test.mjs",
+    "test": "ts-node-esm ./unit.test.mts",
     "poststart": ""
   },
   "author": "Panteleev Kirill",

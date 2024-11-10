@@ -44,7 +44,8 @@ export const useScrollLock = () => {
 
 export const useLocalStorage = <T extends any>(
     key: string, 
-    { defaultValue = null as T }: { defaultValue?: T } = {}
+    { defaultValue = null as T }
+    : { defaultValue?: T } = {}
 ) => {
     return useSignal<T>(null as T, {
         key,

@@ -1,4 +1,28 @@
-import { useScrollLock } from './core/composables.mjs'
+import { defineRepositoryFactory } from './core/repository.mjs'
 
-const scrollLock = useScrollLock()
-scrollLock.value = true
+class Person {
+    public firstName = ''
+    public lastName = ''
+    public middleName = ''
+
+    constructor(name: string) {
+        const [ 
+            lastName = '',
+            firstName = '',
+            middleName = '' 
+        ] = name.trim().split(' ')
+    
+        this.firstName = firstName
+        this.lastName = lastName
+        this.middleName = middleName
+    }
+
+    toString() {
+        return `${this.lastName} ${this.firstName} ${this.middleName}`
+    }
+}
+
+const usePerson = defineRepositoryFactory(Person)
+
+const person = usePerson('Пантелеев Кирилл Александрович')
+console.log(person.toString())
