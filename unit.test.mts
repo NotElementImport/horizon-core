@@ -23,6 +23,3 @@ class Person {
 }
 
 const usePerson = defineRepositoryFactory(Person)
-
-const person = usePerson('Пантелеев Кирилл Александрович')
-console.log(person.toString())
