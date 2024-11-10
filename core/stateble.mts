@@ -52,6 +52,8 @@ export const useSignal = <T extends unknown, K = T>(
         [sWatch]: new Map<string, Function>(),
         get [sValue]() { return signal.value },
         get [sAsRaw]() {
+            if(isSignalListener)
+                signalListener.push(signal.value)
             return config.asRaw
                 ? config.asRaw(value)
                 : value
@@ -148,16 +150,16 @@ export const useSignal = <T extends unknown, K = T>(
     return signal as any
 }
 
-export const useComputed = <T extends any>(handle: () => T) => {
+export const useComputed = <T extends any>(handle: (raw: (value: any) => any) => T) => {
     return useSignal<T>(null as T, {
         onInit(signal) {
             isSignalListener = true
             signalListener   = []
 
-            signal.value = handle()
+            signal.value = handle(tryGetRaw)
 
             for (const item of signalListener)
-                watch(item, () => signal.value = handle())
+                watch(item, () => signal.value = handle(tryGetRaw))
 
             isSignalListener = false
             signalListener   = []
