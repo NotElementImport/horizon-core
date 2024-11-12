@@ -38,7 +38,7 @@ export namespace Primitive {
     type LikeProxy<T extends Record<string, any> = Record<string, any>> = T|T[]
 
     interface ComponentNode<K extends PropertyKey|null> {
-        unmount(): void
+        unmount(deep?: boolean): void
         type: K
         dom: HTMLElement
         props: Record<string|symbol, any>
@@ -125,7 +125,7 @@ export namespace Component {
         
         use<T extends object, S extends object>(other: Component.Component<T, S>, props?: T, slot?: (args: S) => void): void
         slot(args: S): void
-        dyn(follower: Props.OrSignal<any>[], handle: () => void|Promise<void>): void
+        dyn(follower: Props.OrSignal<any>[], handle: () => void|Promise<void>, config?: { deepUnmount?: boolean, unmount?: boolean }): void
     }
 
     type ComponentHandler<P, S> = (props: P, atoms: AtomList<S>) => void

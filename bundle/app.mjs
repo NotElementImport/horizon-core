@@ -9,11 +9,12 @@ const sCompoisteUnmounted = Symbol();
 export function useComposite(type, props, inline = false) {
     return {
         [sCompoisteUnmounted]: [],
-        unmount() {
+        unmount(deep = true) {
             for (const callback of this[sCompoisteUnmounted])
                 callback(this);
-            for (const child of this.childs)
-                child.unmount();
+            if (deep)
+                for (const child of this.childs)
+                    child.unmount();
             this.childs = [];
         },
         type,
@@ -252,7 +253,7 @@ async function render(app, comp, props) {
             div(...args) {
                 return $nodes.$('div', ...args);
             },
-            dyn(follower, slot) {
+            dyn(follower, slot, config = {}) {
                 const stack = app.stack;
                 const parent = app.leadComposable;
                 const hash = app.hydMeta + `${app.hydCounter}dyn`;
@@ -263,7 +264,10 @@ async function render(app, comp, props) {
                 const dynamicRender = async () => {
                     if (isClient)
                         vDom.dom.innerHTML = '';
-                    node.unmount();
+                    if (config.unmount ?? true)
+                        node.unmount(config.deepUnmount ?? true);
+                    else
+                        node.childs = [];
                     await app.lead(node, async () => {
                         const oldCounter = app.hydCounter;
                         app.hydCounter = 0;

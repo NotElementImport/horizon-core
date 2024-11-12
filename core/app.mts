@@ -47,12 +47,13 @@ export function useComposite<K extends PropertyKey|null>(
     return {
         // @ts-ignore
         [sCompoisteUnmounted]: [],
-        unmount() {
+        unmount(deep = true) {
             // @ts-ignore
             for (const callback of this[sCompoisteUnmounted])
                 callback(this)
-            for (const child of this.childs)
-                child.unmount()
+            if(deep)
+                for (const child of this.childs)
+                    child.unmount()
             this.childs = []
         },
         type,
@@ -340,7 +341,7 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
             div(...args: any) {
                 return $nodes.$('div', ...args)
             },
-            dyn(follower: Signal.Signal<any>[], slot: () => void|Promise<void>) {
+            dyn(follower: Signal.Signal<any>[], slot: () => void|Promise<void>, config: any = {}) {
                 const stack = app.stack
                 const parent = app.leadComposable
                 
@@ -353,7 +354,11 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
                 const dynamicRender = async () => {
                     if(isClient)
                         vDom.dom.innerHTML = ''
-                    node.unmount()
+
+                    if(config.unmount ?? true)
+                        node.unmount(config.deepUnmount ?? true)
+                    else
+                        node.childs = []
 
                     await app.lead(node, async () => {
                         const oldCounter = app.hydCounter
