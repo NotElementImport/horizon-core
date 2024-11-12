@@ -3,6 +3,7 @@ import { IStack } from "./stack.mjs";
 export interface IHorizonApp {
     readonly composable: Primitive.ComponentNode<null>;
     readonly leadComposable: Primitive.ComponentNode<any>;
+    readonly isHydrate: boolean;
     get hydCounter(): number;
     set hydCounter(v: number);
     get hydMeta(): string;
@@ -14,6 +15,14 @@ export interface IHorizonApp {
     pipeTo(composable: Primitive.ComponentNode<any>, index: number, parent?: Primitive.ComponentNode<any>): void;
     lead(composable: Primitive.ComponentNode<any>, handle: () => (Promise<void> | void)): Promise<void>;
     clearHeap(): void;
+    renderSSR(component: Component.Component, config?: {
+        withMeta?: boolean;
+        withSecurity?: boolean;
+        onlyString?: boolean;
+        unmountAtEnd?: boolean;
+    }): Promise<string>;
+    renderDOM(component: Component.Component): Promise<void>;
+    renderComponent(component: Component.Component, props: any): Promise<void>;
     stack: IStack;
 }
 export declare const isClient: boolean;
@@ -22,12 +31,3 @@ export declare let currentApp: IHorizonApp;
 export declare function defineApp(conifg?: {
     devMode?: boolean;
 }): IHorizonApp;
-export declare function render<T extends Record<string, any>>(app: IHorizonApp, comp: Component.Component<T>, props?: T): Promise<void>;
-export declare function toDomString(comp: Primitive.ComponentNode<any>): string;
-export declare function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>): {
-    readonly isAlive: boolean;
-    dom: HTMLElement;
-    click(handle: Function): void;
-    hover(handle: Function): void;
-    lost(handle: Function): void;
-};

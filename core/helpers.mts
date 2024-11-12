@@ -7,6 +7,11 @@ export const useId = (len = 10) => {
     return result
 }
 
+let busCounter = -1
+export const useBusId = () => {
+    return (busCounter++, busCounter)
+}
+
 export const useStylePrettify = (style: Record<string, any> | string) => {
     if(typeof style == 'string') return style
 

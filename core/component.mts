@@ -1,5 +1,5 @@
 import { Component, Props } from "../type"
-import { currentApp, render, useComposite } from "./app.mjs"
+import { currentApp, useComposite } from "./app.mjs"
 
 export function comp<P extends object, S extends object>(
     slot: Component.ComponentHandler<P, S>
@@ -36,7 +36,7 @@ export function mod<P extends object, S extends object>(
             app.hydMeta = hash
             app.pipeTo(scoped.composable, index, parent)
        
-            await render(app, scoped, { ...props, hash, slot: $slot })
+            await currentApp.renderComponent(scoped, { ...props, hash, slot: $slot })
 
             app.hydMeta = oldMeta
 

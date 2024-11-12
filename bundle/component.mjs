@@ -1,4 +1,4 @@
-import { currentApp, render, useComposite } from "./app.mjs";
+import { currentApp, useComposite } from "./app.mjs";
 export function comp(slot) {
     const $composable = useComposite(null, {});
     return { slot, get composable() { return $composable; } };
@@ -24,7 +24,7 @@ export function mod(slot) {
             app.hydCounter = app.hydCounter;
             app.hydMeta = hash;
             app.pipeTo(scoped.composable, index, parent);
-            await render(app, scoped, { ...props, hash, slot: $slot });
+            await currentApp.renderComponent(scoped, { ...props, hash, slot: $slot });
             app.hydMeta = oldMeta;
         });
         app.hydCounter += 1;

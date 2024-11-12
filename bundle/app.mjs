@@ -1,12 +1,21 @@
 import { useStylePrettify } from "./helpers.mjs";
 import { useStack } from "./stack.mjs";
-import { tryGetRaw, useStrongRef, watch } from "./stateble.mjs";
+import { tryGetRaw, useStrongRef, watch, clearSignalHeap, busSignal } from "./stateble.mjs";
 export const isClient = typeof document !== 'undefined';
 const arrayInsert = (array, index, value) => {
     return [...array.slice(0, index), value, ...array.slice(index, array.length)];
 };
+const sCompoisteUnmounted = Symbol();
 export function useComposite(type, props, inline = false) {
     return {
+        [sCompoisteUnmounted]: [],
+        unmount() {
+            for (const callback of this[sCompoisteUnmounted])
+                callback(this);
+            for (const child of this.childs)
+                child.unmount();
+            this.childs = [];
+        },
         type,
         dom: null,
         props,
@@ -21,13 +30,16 @@ export function defineApp(conifg = {}) {
     let currentComposable = $app;
     let hydrateCounter = 0;
     let hydrateMeta = '$';
+    let isHydrate = false;
     const $instance = {
         clearHeap() {
             hydrateCounter = 0;
             hydrateMeta = '$';
             currentComposable = $app;
             $app.dom = null;
+            clearSignalHeap();
         },
+        get isHydrate() { return isHydrate; },
         get isDev() { return conifg.devMode ?? false; },
         get stack() { return stack; },
         set stack(v) { stack = v; },
@@ -51,17 +63,19 @@ export function defineApp(conifg = {}) {
         domPipe(dom, parent) {
             if (!isClient)
                 return;
-            if (parent)
+            if (parent && parent.dom)
                 return parent.dom.appendChild(dom);
-            currentComposable.dom.appendChild(dom);
+            else if (currentComposable.dom)
+                currentComposable.dom.appendChild(dom);
         },
         domPipeTo(dom, index, parent) {
             if (!isClient)
                 return;
             const to = parent ? parent.dom : currentComposable.dom;
-            if (index + 1 >= to.childNodes.length)
+            if (to && index + 1 >= to.childNodes.length)
                 return to.appendChild(dom);
-            to.insertBefore(dom, to.children[index + 1]);
+            else if (to)
+                to.insertBefore(dom, to.children[index + 1]);
         },
         pipeTo(composable, index, parent) {
             const to = parent ? parent.childs : currentComposable.childs;
@@ -70,18 +84,65 @@ export function defineApp(conifg = {}) {
             if (parent)
                 parent.childs = arrayInsert(parent.childs, index + 1, composable);
             currentComposable.childs = arrayInsert(currentComposable.childs, index + 1, composable);
+        },
+        async renderSSR(component, config = {}) {
+            if (!(config.onlyString ?? false)) {
+                await render($instance, component);
+            }
+            let ssrMeta = '';
+            if (config.withMeta ?? false) {
+                ssrMeta += '<script id="ssr-meta-object" type="application/json">';
+                const ssrMetaObject = { bus: {} };
+                for (const [key, signal] of busSignal.entries()) {
+                    ssrMetaObject.bus[key] = signal.value;
+                }
+                ssrMeta += JSON.stringify(ssrMetaObject);
+                ssrMeta += '</script>';
+            }
+            const response = ssrMeta + toDomString(component.composable);
+            if (config.withSecurity ?? true) {
+                if (config.unmountAtEnd ?? false)
+                    component.composable.unmount();
+                else
+                    component.composable.childs = [];
+                component.composable.dom = null;
+                component.composable.props = {};
+            }
+            $instance.clearHeap();
+            return response;
+        },
+        async renderDOM(component) {
+            if (!isClient)
+                throw new Error('Horizon: RenderDOM work only in client side');
+            isHydrate = true;
+            const ssrMeta = document.getElementById('ssr-meta-object');
+            if (ssrMeta) {
+                const ssrMetaObject = JSON.parse(ssrMeta.innerHTML);
+                for (const [key, value] of Object.entries(ssrMetaObject.bus)) {
+                    busSignal.set(key, value);
+                }
+            }
+            await render($instance, component);
+            isHydrate = false;
+        },
+        async renderComponent(comp, props) {
+            await render($instance, comp, props);
         }
     };
     currentApp = $instance;
     return $instance;
 }
-export async function render(app, comp, props) {
+async function render(app, comp, props) {
     const oldStack = app.stack;
     app.stack = useStack();
     if (!props)
         app.pipe(comp.composable);
     await app.lead(comp.composable, () => {
         const $nodes = {
+            onUnmount(handle) {
+                const parent = app.leadComposable;
+                parent[sCompoisteUnmounted].push(handle);
+            },
             slot(args = {}) {
                 const stack = app.stack;
                 const parent = app.leadComposable;
@@ -188,48 +249,6 @@ export async function render(app, comp, props) {
                 app.hydCounter += 1;
                 return vDom;
             },
-            slide(mainStage, secondStage) {
-                const stack = app.stack;
-                const hash = app.hydMeta + `${app.hydCounter}div`;
-                const props = { class: 'horizon slide', hash };
-                const vDom = toDom('div', props);
-                const parent = app.leadComposable;
-                const index = app.hydCounter;
-                stack.push(async () => {
-                    const node = useComposite('div', props);
-                    node.dom = vDom.dom;
-                    app.pipeTo(node, index, parent);
-                    app.domPipeTo(vDom.dom, index, parent);
-                    await app.lead(node, async () => {
-                        const oldCounter = app.hydCounter;
-                        app.hydCounter = 0;
-                        app.hydMeta = hash;
-                        $nodes.div({ class: 'slide-first' }, mainStage);
-                        $nodes.div({ class: 'slide-second' }, secondStage);
-                        app.hydCounter = oldCounter;
-                    });
-                });
-                app.hydCounter += 1;
-                return { dom: vDom.dom,
-                    withTimer(sec) {
-                        if (!isClient)
-                            return;
-                        vDom.dom.classList.add('to-second');
-                        setTimeout(() => {
-                            vDom.dom.classList.remove('to-second');
-                        }, sec * 1000);
-                    },
-                    toMain() {
-                        if (!isClient)
-                            return;
-                        vDom.dom.classList.remove('to-second');
-                    },
-                    toSecond() {
-                        if (!isClient)
-                            return;
-                        vDom.dom.classList.add('to-second');
-                    } };
-            },
             div(...args) {
                 return $nodes.$('div', ...args);
             },
@@ -244,7 +263,7 @@ export async function render(app, comp, props) {
                 const dynamicRender = async () => {
                     if (isClient)
                         vDom.dom.innerHTML = '';
-                    node.childs = [];
+                    node.unmount();
                     await app.lead(node, async () => {
                         const oldCounter = app.hydCounter;
                         app.hydCounter = 0;
@@ -283,8 +302,10 @@ export async function render(app, comp, props) {
     await stack.run();
     stack.clear();
     app.stack = oldStack;
+    if (!props)
+        app.hydCounter = 0;
 }
-export function toDomString(comp) {
+function toDomString(comp) {
     let result = '';
     const layer = (comp) => {
         if (!comp.type)
@@ -314,7 +335,7 @@ export function toDomString(comp) {
     layer(comp);
     return result;
 }
-export function toDom(type, props) {
+function toDom(type, props) {
     let dom = null;
     const eventExist = {};
     const eventSet = (name, handle) => {

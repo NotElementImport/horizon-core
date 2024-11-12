@@ -1,17 +1,12 @@
-// import { IComponent } from "./component.ts"
-// import { IStack, useStack } from "./stack.ts"
-// import { State, toRaw, toRawHandle, watch } from "./state.ts"
 import { Component, Primitive, Signal } from "../type"
 import { useStylePrettify } from "./helpers.mjs"
 import { IStack, useStack } from "./stack.mjs"
-import { tryGetRaw, useStrongRef, watch } from "./stateble.mjs"
-// import { HorizonSlot } from "./types"
-// import { toCss } from "./utils.ts"
-
+import { tryGetRaw, useStrongRef, watch, clearSignalHeap, busSignal } from "./stateble.mjs"
 
 export interface IHorizonApp {
     readonly composable: Primitive.ComponentNode<null>
     readonly leadComposable: Primitive.ComponentNode<any>
+    readonly isHydrate: boolean
 
     get hydCounter(): number
     set hydCounter(v: number)
@@ -30,6 +25,10 @@ export interface IHorizonApp {
 
     clearHeap(): void
 
+    renderSSR(component: Component.Component, config?: { withMeta?: boolean, withSecurity?: boolean, onlyString?: boolean, unmountAtEnd?: boolean }): Promise<string>
+    renderDOM(component: Component.Component): Promise<void>
+    renderComponent(component: Component.Component, props: any): Promise<void>
+
     stack: IStack
 }
 
@@ -39,12 +38,23 @@ const arrayInsert = (array: any[], index: number, value: any) => {
     return [...array.slice(0, index), value, ...array.slice(index, array.length)]
 }
 
+const sCompoisteUnmounted = Symbol()
 export function useComposite<K extends PropertyKey|null>(
     type: K, 
     props: Record<string, any>,
     inline: boolean = false
 ): Primitive.ComponentNode<K> {
     return {
+        // @ts-ignore
+        [sCompoisteUnmounted]: [],
+        unmount() {
+            // @ts-ignore
+            for (const callback of this[sCompoisteUnmounted])
+                callback(this)
+            for (const child of this.childs)
+                child.unmount()
+            this.childs = []
+        },
         type,
         dom: null as any,
         props,
@@ -66,6 +76,7 @@ export function defineApp(conifg: {
     
     let hydrateCounter = 0
     let hydrateMeta    = '$'
+    let isHydrate      = false
 
     const $instance: IHorizonApp = {
         clearHeap() {
@@ -73,8 +84,9 @@ export function defineApp(conifg: {
             hydrateMeta = '$'
             currentComposable = $app
             $app.dom = null as any
+            clearSignalHeap()
         },
-
+        get isHydrate() { return isHydrate },
         get isDev() { return conifg.devMode ?? false },
 
         get stack() { return stack },
@@ -106,9 +118,10 @@ export function defineApp(conifg: {
         domPipe(dom, parent?) {
             if(!isClient) return
 
-            if(parent)
+            if(parent && parent.dom)
                 return parent.dom.appendChild(dom)
-            currentComposable.dom.appendChild(dom)
+            else if(currentComposable.dom)
+                currentComposable.dom.appendChild(dom)
         },
 
         domPipeTo(dom, index, parent?) {
@@ -116,13 +129,13 @@ export function defineApp(conifg: {
 
             const to = parent ? parent.dom : currentComposable.dom
 
-            if(index + 1 >= to.childNodes.length)
+            if(to && index + 1 >= to.childNodes.length)
                 return to.appendChild(dom)
-            
-            to.insertBefore(
-                dom,
-                to.children[index + 1]
-            )
+            else if(to)
+                to.insertBefore(
+                    dom,
+                    to.children[index + 1]
+                )
         },
 
         pipeTo(composable, index, parent?) {
@@ -134,6 +147,57 @@ export function defineApp(conifg: {
             if(parent)
                 parent.childs = arrayInsert(parent.childs, index + 1, composable)
             currentComposable.childs  = arrayInsert(currentComposable.childs, index + 1, composable)
+        },
+
+        async renderSSR(component, config = {}) {
+            if(!(config.onlyString ?? false)) {
+                await render($instance, component)
+            }
+            let ssrMeta = ''
+            
+            if(config.withMeta ?? false) {
+                ssrMeta += '<script id="ssr-meta-object" type="application/json">'
+                const ssrMetaObject = { bus: {} as any }
+                for (const [key, signal] of busSignal.entries()) {
+                    ssrMetaObject.bus[key] = signal.value
+                }
+                ssrMeta += JSON.stringify(ssrMetaObject)
+                ssrMeta += '</script>'
+            }
+
+            const response = ssrMeta + toDomString(component.composable)
+
+            if(config.withSecurity ?? true) {
+                if(config.unmountAtEnd ?? false)
+                    component.composable.unmount()
+                else
+                    component.composable.childs = []
+
+                component.composable.dom = null as any
+                component.composable.props = {}
+            }
+            $instance.clearHeap()
+            return response
+        },
+
+        async renderDOM(component) {
+            if(!isClient)
+                throw new Error('Horizon: RenderDOM work only in client side')
+
+            isHydrate = true
+            const ssrMeta = document.getElementById('ssr-meta-object')
+            if(ssrMeta) {
+                const ssrMetaObject = JSON.parse(ssrMeta.innerHTML)
+                for (const [key, value] of Object.entries(ssrMetaObject.bus)) {
+                    busSignal.set(key, value as any)
+                }
+            }
+            await render($instance, component)
+            isHydrate = false
+        },
+
+        async renderComponent(comp: Component.Component, props?: any) {
+            await render($instance, comp, props)
         }
     }
 
@@ -141,7 +205,7 @@ export function defineApp(conifg: {
     return $instance
 }
 
-export async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Component.Component<T>, props?: T) {
+async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Component.Component<T>, props?: T) {
     const oldStack = app.stack
     app.stack = useStack()
 
@@ -150,6 +214,11 @@ export async function render<T extends Record<string, any>>(app: IHorizonApp, co
 
     await app.lead(comp.composable, () => {
         const $nodes = {
+            onUnmount(handle: () => unknown) {
+                const parent = app.leadComposable
+                // @ts-ignore
+                parent[sCompoisteUnmounted].push(handle)
+            },
             slot(args: any = {}) {
                 const stack = app.stack
                 const parent = app.leadComposable
@@ -268,52 +337,6 @@ export async function render<T extends Record<string, any>>(app: IHorizonApp, co
                 app.hydCounter += 1
                 return vDom
             },
-            slide(mainStage: Component.Slot, secondStage: Component.Slot) {
-                const stack = app.stack
-                const hash  = app.hydMeta + `${app.hydCounter}div`
-                const props = {  class: 'horizon slide', hash }
-                const vDom  = toDom('div', props)
-
-                const parent = app.leadComposable
-                const index = app.hydCounter
-                stack.push(async () => {
-                    const node = useComposite('div', props)
-                    node.dom = vDom.dom
-                    app.pipeTo(node, index, parent)
-                    app.domPipeTo(vDom.dom, index, parent)
-
-                    await app.lead(node, async () => {
-                        const oldCounter = app.hydCounter
-                        app.hydCounter = 0
-                        app.hydMeta = hash
-
-                        $nodes.div({ class: 'slide-first' }, mainStage)
-                        $nodes.div({ class: 'slide-second' }, secondStage)
-
-                        app.hydCounter = oldCounter
-                    })
-                })
-
-                app.hydCounter += 1
-                return { dom: vDom.dom, 
-                    withTimer(sec: number) {
-                        if(!isClient) return
-
-                        vDom.dom.classList.add('to-second')
-                        setTimeout(() => {
-                            vDom.dom.classList.remove('to-second')
-                        }, sec * 1000)
-                    },
-                    toMain() {
-                        if(!isClient) return
-                        vDom.dom.classList.remove('to-second')
-                    },
-                    toSecond() {
-                        if(!isClient) return
-                        vDom.dom.classList.add('to-second')
-                    }
-                }
-            },
             div(...args: any) {
                 return $nodes.$('div', ...args)
             },
@@ -330,7 +353,7 @@ export async function render<T extends Record<string, any>>(app: IHorizonApp, co
                 const dynamicRender = async () => {
                     if(isClient)
                         vDom.dom.innerHTML = ''
-                    node.childs = []
+                    node.unmount()
 
                     await app.lead(node, async () => {
                         const oldCounter = app.hydCounter
@@ -370,118 +393,7 @@ export async function render<T extends Record<string, any>>(app: IHorizonApp, co
 
                 return vDom
             },
-            // list(item: State<any[]>, config: Record<string, any>, slot: (item: any) => void|Promise<void>) {
-            //     const stack = app.stack
-            //     const parent = app.leadComposable
-
-            //     const hash  = app.hydMeta + `${app.hydCounter}dyn`
-            //     const props = { style: 'display: contents;', hash }
-            //     const vDom  = toDom('dynamic' as any, props)
-            //     const node = useComposite('dynamic' as any, props)
-            //     node.dom   = vDom.dom
-
-            //     const blitNode = async (index: number, hash: string, to: IComposable<any>) => {
-            //         if(isClient)
-            //             to.dom.innerHTML = ''
-            //         to.childs = []
-
-            //         const oldCounter = app.hydCounter
-            //         await app.lead(to, async () => {
-            //             app.hydCounter = 0
-            //             app.hydMeta = hash
-            //             app.stack = stack
-            //             await slot(toRaw(item)[index])
-            //         })
-            //         app.hydCounter = oldCounter
-            //     }
-
-            //     const appendMode = async (index: number, newCount: number) => {
-            //         const oldCounter = app.hydCounter
-            //         const oldMeta = app.hydMeta
-            //         app.hydCounter = index
-            //         for(let i = 0; i < newCount; i ++) {
-            //             const listHash  = `${hash}${app.hydCounter}itm`
-            //             const listProps = { style: 'display: contents;', hash: listHash }
-
-            //             const listNode = useComposite('section', listProps)
-            //             const listDom  = toDom('section', listProps)
-            //             listNode.dom   = listDom.dom
-
-            //             await blitNode(index + i, listHash, listNode)                 
-
-            //             app.pipeTo(listNode, app.hydCounter, node) 
-            //             app.domPipeTo(listDom.dom, app.hydCounter, node)
-
-            //             app.hydMeta = oldMeta
-            //             app.hydCounter ++
-            //         }
-            //         app.hydCounter = oldCounter
-            //     }
-
-            //     const removeMode = async (count: number) => {
-            //         for (let i = 0; i < count; i ++) {
-            //             node.childs.pop()
-            //             node.dom.removeChild(node.dom.lastChild as ChildNode)   
-            //         }
-            //     }
-
-            //     const editMode = async (id: number) => {
-            //         if(node.childs.length <= id || item.value.length <= id || Number.isNaN(id)) return
-            //         await blitNode(id, node.childs[id].props.hash, node.childs[id])                 
-            //     }
-
-            //     watch(item, (v) => {
-            //         const oldStack = app.stack
-            //         app.stack = stack
-
-            //         const data = combine.split('.')[1]
-
-            //         if(data == '') {
-            //             if(isClient)
-            //                 node.dom.innerHTML = ''
-            //             node.childs = []
-            //             stack.push(async () => {
-            //                 await appendMode(0, item.value.length)
-            //             })
-            //         }
-            //         else if(data == 'length') {
-            //             const mov = item.value.length - node.childs.length
-            //             if(mov > 0)
-            //                 stack.push(async () => {
-            //                     await appendMode(node.childs.length, mov)
-            //                 })
-            //             else
-            //                 stack.push(async () => {
-            //                     await removeMode(-mov)
-            //                 })
-            //         }
-            //         else if(config.deep ?? true) {
-            //             stack.push(async () => {
-            //                 await editMode(Number.parseInt(data))
-            //             })
-            //         }
-            //         stack.run(true).then(() => app.stack = oldStack)
-            //     }, { distinct: false, deep: true })
-
-            //     const index = app.hydCounter
-            //     stack.push(async () => {
-            //         const oldMeta = app.hydMeta
-            //         await app.lead(node, async () => {
-            //             const oldCounter = app.hydCounter
-            //             app.hydCounter = 0
-            //             app.hydMeta = hash
-            //             await appendMode(0, toRaw(item).length)
-            //             app.hydCounter = oldCounter
-            //         })
-            //         app.hydMeta = oldMeta
-            //         app.pipeTo(node, index, parent) 
-            //         app.domPipeTo(vDom.dom, index, parent)
-            //     })
-
-            //     app.hydCounter += 1
-
-            //     return vDom
-            // }
+            
         }
 
         comp.slot(props as any, $nodes as any)
@@ -491,9 +403,11 @@ export async function render<T extends Record<string, any>>(app: IHorizonApp, co
     await stack.run()
     stack.clear()
     app.stack = oldStack
+    if(!props)
+        app.hydCounter = 0
 }
 
-export function toDomString(comp: Primitive.ComponentNode<any>) {
+function toDomString(comp: Primitive.ComponentNode<any>) {
     let result = ''
     
     const layer = (comp: Primitive.ComponentNode<any>) => {
@@ -532,7 +446,7 @@ export function toDomString(comp: Primitive.ComponentNode<any>) {
     return result
 }
 
-export function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
+function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
     let dom: HTMLElement = null as any
 
     const eventExist: Record<string, boolean> = { }

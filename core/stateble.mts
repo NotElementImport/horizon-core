@@ -1,10 +1,11 @@
-import { useId } from "./helpers.mjs";
+import { useId, useBusId } from "./helpers.mjs";
 import type { Primitive, Signal } from "../type";
 import { currentApp } from "./app.mjs";
 
+const weakMap = new Map<any, any>();
+
 // @ts-ignore
 if(!Object.asWeakRef) {
-    const weakMap = new Map<any, any>();
     // @ts-ignore
     Object.prototype.asWeakRef = function (data: any) { weakMap.set(this, data); return this }
     // @ts-ignore
@@ -22,29 +23,38 @@ if(!Object.asWeakRef) {
 let signalListener: any[] = []
 let isSignalListener = false
 
+export const busSignal = new Map<string, Signal.Signal<any, any>>()
 const sharedSignals = new Map<string, Signal.Signal<any, any>>()
 const sWatch = Symbol()
 const sValue = Symbol()
 const sAsRaw = Symbol()
 const fakeNull = 'null'
 
-export const clearStateHeap = () =>
+export const clearSignalHeap = () => {
     sharedSignals.clear()
+    busSignal.clear()
+    weakMap.clear()
+    signalListener = []
+}
 
 export const useSignal = <T extends unknown, K = T>(
-    value: T, 
-    config: {
-        devExpose?: string
-        key?: string
-        asRaw?: (v: T) => K
-        onSet?: (v: T) => void
-        onInit?: (signal: Signal.Signal<T, K>) => void 
-    } = {
+    value: T,
+    config: Signal.SignalConfig<T, K> = {
         onSet: (v) => {}
     }
 ): Signal.Signal<T, K> => {
     if(config.key && sharedSignals.has(config.key))
         return sharedSignals.get(config.key) as any
+
+    const withBus = (config.bus ?? true) ? true : false
+    const busKey  = withBus
+        ? typeof config.bus == 'string' ? config.bus : `${useBusId()}`
+        : ''
+    
+    if(currentApp.isHydrate && withBus) {
+        if(busSignal.has(busKey))
+            value = busSignal.get(busKey) as T
+    }
 
     let parentSetter = (v: T) => {}
 
@@ -147,11 +157,15 @@ export const useSignal = <T extends unknown, K = T>(
         // @ts-ignore
         globalThis[config.devExpose] = signal
 
+    if(!isClient && withBus)
+        busSignal.set(busKey, signal);
+
     return signal as any
 }
 
 export const useComputed = <T extends any>(handle: (raw: (value: any) => any) => T) => {
     return useSignal<T>(null as T, {
+        bus: false,
         onInit(signal) {
             isSignalListener = true
             signalListener   = []

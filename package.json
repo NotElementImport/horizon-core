@@ -1,9 +1,10 @@
 {
   "name": "horizon-core",
-  "version": "0.1.0-alpha12",
+  "version": "0.1.0-alpha14",
   "description": "Frontend web framework `Horizon`",
   "homepage": "https://github.com/NotElementImport/horizon-core",
   "main": "index.js",
+  "type": "module",
   "exports": {
     ".": {
       "types": "./types/app.d.ts",
@@ -31,7 +32,7 @@
     }
   },
   "scripts": {
-    "start": "node ./npm.build.mjs -esm&&npx tsc -p ./tsconfig.json",
+    "start": "node ./npm.build.mjs -esm&&npx tsc -p ./tsconfig.json&&node ./unit.test.mjs -esm",
     "test": "ts-node-esm ./unit.test.mts",
     "poststart": ""
   },

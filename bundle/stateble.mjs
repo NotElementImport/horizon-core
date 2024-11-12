@@ -1,7 +1,7 @@
-import { useId } from "./helpers.mjs";
+import { useId, useBusId } from "./helpers.mjs";
 import { currentApp } from "./app.mjs";
+const weakMap = new Map();
 if (!Object.asWeakRef) {
-    const weakMap = new Map();
     Object.prototype.asWeakRef = function (data) { weakMap.set(this, data); return this; };
     Object.prototype.weakRef = function (end) {
         const data = weakMap.get(this);
@@ -13,22 +13,40 @@ if (!Object.asWeakRef) {
         return weakMap.has(this);
     };
 }
+let signalListener = [];
+let isSignalListener = false;
+export const busSignal = new Map();
 const sharedSignals = new Map();
 const sWatch = Symbol();
 const sValue = Symbol();
 const sAsRaw = Symbol();
 const fakeNull = 'null';
-export const clearStateHeap = () => sharedSignals.clear();
+export const clearSignalHeap = () => {
+    sharedSignals.clear();
+    busSignal.clear();
+    weakMap.clear();
+    signalListener = [];
+};
 export const useSignal = (value, config = {
     onSet: (v) => { }
 }) => {
     if (config.key && sharedSignals.has(config.key))
         return sharedSignals.get(config.key);
+    const withBus = (config.bus ?? true) ? true : false;
+    const busKey = withBus
+        ? typeof config.bus == 'string' ? config.bus : `${useBusId()}`
+        : '';
+    if (currentApp.isHydrate && withBus) {
+        if (busSignal.has(busKey))
+            value = busSignal.get(busKey);
+    }
     let parentSetter = (v) => { };
     const signal = {
         [sWatch]: new Map(),
         get [sValue]() { return signal.value; },
         get [sAsRaw]() {
+            if (isSignalListener)
+                signalListener.push(signal.value);
             return config.asRaw
                 ? config.asRaw(value)
                 : value;
@@ -37,13 +55,16 @@ export const useSignal = (value, config = {
             return signal[sAsRaw];
         },
         get value() {
-            return (value ?? fakeNull).asWeakRef({
+            const rawValue = (value ?? fakeNull).asWeakRef({
                 value: () => value,
                 set: (v) => signal.value = v,
                 path: '$',
                 pathIndex: 0,
                 signal
             });
+            if (isSignalListener)
+                signalListener.push(rawValue);
+            return rawValue;
         },
         set value(v) {
             value = useProxy(v, ['$']);
@@ -68,14 +89,16 @@ export const useSignal = (value, config = {
                 if (p == 'toString')
                     return () => JSON.stringify(raw);
                 if (p in target) {
-                    const data = target[p] ?? null;
-                    return data.asWeakRef({
+                    const rawValue = (target[p] ?? 'null').asWeakRef({
                         value: () => target[p],
                         set: (v) => proxy[p] = v,
                         path: p,
                         pathIndex: path.length,
                         signal
                     });
+                    if (isSignalListener)
+                        signalListener.push(rawValue);
+                    return rawValue;
                 }
                 return null;
             },
@@ -100,7 +123,23 @@ export const useSignal = (value, config = {
         sharedSignals.set(config.key, signal);
     if (config.devExpose && (currentApp?.isDev ?? false))
         globalThis[config.devExpose] = signal;
+    if (!isClient && withBus)
+        busSignal.set(busKey, signal);
     return signal;
+};
+export const useComputed = (handle) => {
+    return useSignal(null, {
+        bus: false,
+        onInit(signal) {
+            isSignalListener = true;
+            signalListener = [];
+            signal.value = handle(tryGetRaw);
+            for (const item of signalListener)
+                watch(item, () => signal.value = handle(tryGetRaw));
+            isSignalListener = false;
+            signalListener = [];
+        }
+    });
 };
 export const useProxySignal = (signal, config = {}) => {
     return (new Proxy(signal.value, {

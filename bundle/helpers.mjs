@@ -5,6 +5,10 @@ export const useId = (len = 10) => {
         result += charTable.charAt(Math.floor(Math.random() * (charTable.length - 1)));
     return result;
 };
+let busCounter = -1;
+export const useBusId = () => {
+    return (busCounter++, busCounter);
+};
 export const useStylePrettify = (style) => {
     if (typeof style == 'string')
         return style;

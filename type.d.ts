@@ -14,6 +14,15 @@ export namespace Signal {
         signal: Signal<T>|null
     }
     
+    interface SignalConfig<T, K> {
+        devExpose?: string
+        key?: string
+        bus?: boolean|string
+        asRaw?: (v: T) => K
+        onSet?: (v: T) => void
+        onInit?: (signal: Signal.Signal<T, K>) => void 
+    }
+
     interface SignalProxySetup<T extends object|any[]> {
         get?(target: T, p: string|symbol): unknown
         set?(target: T, p: string|symbol, value: T): void
@@ -29,6 +38,7 @@ export namespace Primitive {
     type LikeProxy<T extends Record<string, any> = Record<string, any>> = T|T[]
 
     interface ComponentNode<K extends PropertyKey|null> {
+        unmount(): void
         type: K
         dom: HTMLElement
         props: Record<string|symbol, any>
@@ -107,16 +117,15 @@ export namespace Component {
         & AtomHoverEventConfig
 
     interface AtomList<S extends Record<string, any>> {
+        onUnmount(handle: () => void): void
         $(type: keyof HTMLElementTagNameMap, props?: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
         img(src: Props.OrSignal<string>, props: AtomConfig): AtomResponse
         div(props: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
         text(content: Props.OrSignal<unknown>, props?: AtomConfig): AtomResponse
         
-        // slide(firstStage: Component.Slot, secondStage: Component.Slot): { dom: HTMLElement, withTimer(sec: number): void, toMain(): void, toSecond(): void }
         use<T extends object, S extends object>(other: Component.Component<T, S>, props?: T, slot?: (args: S) => void): void
         slot(args: S): void
         dyn(follower: Props.OrSignal<any>[], handle: () => void|Promise<void>): void
-        // list<T>(item: LikeState<T[]>, config: IList, handle: (item: T) => void|Promise<void>): void
     }
 
     type ComponentHandler<P, S> = (props: P, atoms: AtomList<S>) => void

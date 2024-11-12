@@ -1,12 +1,8 @@
 import type { Primitive, Signal } from "../type";
-export declare const clearStateHeap: () => void;
-export declare const useSignal: <T extends unknown, K = T>(value: T, config?: {
-    devExpose?: string;
-    key?: string;
-    asRaw?: (v: T) => K;
-    onSet?: (v: T) => void;
-    onInit?: (signal: Signal.Signal<T, K>) => void;
-}) => Signal.Signal<T, K>;
+export declare const busSignal: Map<string, Signal.Signal<any, any>>;
+export declare const clearSignalHeap: () => void;
+export declare const useSignal: <T extends unknown, K = T>(value: T, config?: Signal.SignalConfig<T, K>) => Signal.Signal<T, K>;
+export declare const useComputed: <T extends unknown>(handle: (raw: (value: any) => any) => T) => Signal.Signal<T, T>;
 export declare const useProxySignal: <T extends Primitive.LikeProxy>(signal: Signal.Signal<any>, config?: Signal.SignalProxySetup<T>) => Signal.ProxySignal<T>;
 export declare const watch: <T extends unknown>(value: T, handle: (v: T extends Signal.Signal<any> ? T["value"] : T) => void, config?: {
     key?: string;
