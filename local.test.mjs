@@ -15,26 +15,7 @@ const articles = useSignal([
     { title: 'Title 2' }
 ], { bus: 'articles' })
 
-const main = comp((_, { dyn, div, text, onUnmount }) => {
-    dyn([articles], () => {
-        for (const [index, article] of Object.entries(articles.value)) {
-            div({}, _ => {
-                text(article.title)
-
-                onUnmount(() => {
-                    console.log(`${index} div goodbye`)
-                })
-            })
-        }
-
-        onUnmount(() => {
-            console.log(`struct goodbye`)
-        })
-    })
+const main = comp((_, { img }) => {
 })
 
 await app.renderSSR(main, { withMeta: true, unmountAtEnd: true })
-
-// articles.value.push({ title: 'title 3' })
-
-await useWait(100)

@@ -75,30 +75,45 @@ export namespace Component {
         /**
          * Event Listener `click`
          */
-        '@click': (ev:MouseEvent) => unknown
+        '@click'?: (ev:MouseEvent) => unknown
         /**
          * Event Listener `click` with `preventDefault()` modificator
          */
-        '@click.prevent': (ev:MouseEvent) => unknown
+        '@click.prevent'?: (ev:MouseEvent) => unknown
         /**
          * Event Listener `click` with `stopPropagation()` modificator
          */
-        '@click.stop': (ev:MouseEvent) => unknown 
+        '@click.stop'?: (ev:MouseEvent) => unknown 
     }
 
     interface AtomHoverEventConfig {
         /**
          * Event Listener `hover`
          */
-        '@hover': (ev:MouseEvent) => unknown
+        '@hover'?: (ev:MouseEvent) => unknown
         /**
          * Event Listener `hover` with `preventDefault()` modificator
          */
-        '@hover.prevent': (ev:MouseEvent) => unknown
+        '@hover.prevent'?: (ev:MouseEvent) => unknown
         /**
          * Event Listener `hover` with `stopPropagation()` modificator
          */
-        '@hover.stop': (ev:MouseEvent) => unknown 
+        '@hover.stop'?: (ev:MouseEvent) => unknown 
+    }
+
+    interface AtomLostEventConfig {
+        /**
+         * Event Listener `lost`
+         */
+        '@lost'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `lost` with `preventDefault()` modificator
+         */
+        '@lost.prevent'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `lost` with `stopPropagation()` modificator
+         */
+        '@lost.stop'?: (ev:MouseEvent) => unknown 
     }
 
     interface AtomBasicConfig {
@@ -115,11 +130,19 @@ export namespace Component {
     type AtomConfig = AtomBasicConfig 
         & AtomClickEventConfig
         & AtomHoverEventConfig
+        & AtomLostEventConfig
+
+    type AtomImgConfig = AtomConfig & {
+        alt?: string
+        decoding?: 'sync'|'async'|'auto'
+        fetchpriority?: 'high'|'low'|'auto'
+        loading?: 'lazy'|'eager'
+    }
 
     interface AtomList<S extends Record<string, any>> {
         onUnmount(handle: () => void): void
         $(type: keyof HTMLElementTagNameMap, props?: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
-        img(src: Props.OrSignal<string>, props: AtomConfig): AtomResponse
+        img(src: Props.OrSignal<string>, props?: AtomImgConfig): AtomResponse
         div(props: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
         text(content: Props.OrSignal<unknown>, props?: AtomConfig): AtomResponse
         
