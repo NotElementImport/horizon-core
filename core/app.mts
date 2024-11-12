@@ -220,7 +220,7 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
             onUnmount(handle: () => unknown) {
                 const parent = app.leadComposable
                 // @ts-ignore
-                parent[sCompoisteUnmounted].push(handle)
+                parent[sCompoisteUnmounted] = handle
             },
             slot(args: any = {}) {
                 const stack = app.stack
