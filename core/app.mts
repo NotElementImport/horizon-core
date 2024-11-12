@@ -46,11 +46,13 @@ export function useComposite<K extends PropertyKey|null>(
 ): Primitive.ComponentNode<K> {
     return {
         // @ts-ignore
-        [sCompoisteUnmounted]: [],
+        [sCompoisteUnmounted]: null,
         unmount(deep = true) {
             // @ts-ignore
-            for (const callback of this[sCompoisteUnmounted])
-                callback(this)
+            if(this[sCompoisteUnmounted])
+                // @ts-ignore
+                this[sCompoisteUnmounted](this)
+        
             if(deep)
                 for (const child of this.childs)
                     child.unmount()
