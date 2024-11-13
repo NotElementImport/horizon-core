@@ -2,6 +2,7 @@
   "exclude": [
     "./unit.test.mts",
     "./unit.test.mjs",
+    "./local.test.mjs",
     "./type.d.ts",
     "./*.mjs",
     "./types/*",
