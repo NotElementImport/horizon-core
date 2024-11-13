@@ -8,10 +8,10 @@ const arrayInsert = (array, index, value) => {
 const sCompoisteUnmounted = Symbol();
 export function useComposite(type, props, inline = false) {
     return {
-        [sCompoisteUnmounted]: [],
+        [sCompoisteUnmounted]: null,
         unmount(deep = true) {
-            for (const callback of this[sCompoisteUnmounted])
-                callback(this);
+            if (this[sCompoisteUnmounted])
+                this[sCompoisteUnmounted](this);
             if (deep)
                 for (const child of this.childs)
                     child.unmount();
@@ -142,7 +142,7 @@ async function render(app, comp, props) {
         const $nodes = {
             onUnmount(handle) {
                 const parent = app.leadComposable;
-                parent[sCompoisteUnmounted].push(handle);
+                parent[sCompoisteUnmounted] = handle;
             },
             slot(args = {}) {
                 const stack = app.stack;
@@ -256,6 +256,7 @@ async function render(app, comp, props) {
             dyn(follower, slot, config = {}) {
                 const stack = app.stack;
                 const parent = app.leadComposable;
+                const keepCounter = app.hydCounter;
                 const hash = app.hydMeta + `${app.hydCounter}dyn`;
                 const props = { style: 'display: contents;', hash };
                 const vDom = toDom('dynamic', props);
@@ -270,7 +271,7 @@ async function render(app, comp, props) {
                         node.childs = [];
                     await app.lead(node, async () => {
                         const oldCounter = app.hydCounter;
-                        app.hydCounter = 0;
+                        app.hydCounter = keepCounter;
                         app.hydMeta = hash;
                         await slot();
                         app.hydCounter = oldCounter;

@@ -347,6 +347,7 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
                 const stack = app.stack
                 const parent = app.leadComposable
                 
+                const keepCounter = app.hydCounter
                 const hash  = app.hydMeta + `${app.hydCounter}dyn`
                 const props = { style: 'display: contents;', hash }
                 const vDom  = toDom('dynamic' as any, props)
@@ -364,7 +365,7 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
 
                     await app.lead(node, async () => {
                         const oldCounter = app.hydCounter
-                        app.hydCounter = 0
+                        app.hydCounter = keepCounter
                         app.hydMeta = hash
                         await slot()
                         app.hydCounter = oldCounter

@@ -1,22 +1,46 @@
-// import { defineApp } from "./bundle/app.mjs";
-// import { comp } from "./bundle/component.mjs";
-// import { useSignal } from "./bundle/stateble.mjs";
+import { defineApp } from "./bundle/app.mjs";
+import { comp } from "./bundle/component.mjs";
+import { useSignal } from "./bundle/stateble.mjs";
+import router from "./bundle/router.mjs";
 
-// const useWait = async (ms = 1000) => {
-//     return new Promise((resolve) => {
-//         setTimeout(() => resolve(), ms)
-//     })
-// }
+const app = defineApp()
 
-// const app = defineApp()
+const home = comp((_, { $, text }) => {
+    console.log(router.current.port)
 
-// const articles = useSignal([
-//     { title: 'Title 1' },
-//     { title: 'Title 2' }
-// ], { bus: 'articles' })
+    $('div', { }, () => {
+        text('Home')
+    })
+})
 
-// const main = comp((_, { img }) => {
+const about = comp((_, { $, text }) => {
+    $('div', { }, () => {
+        text('About')
+    })
+})
 
-// })
+const oneItem = comp((_, { $, text }) => {
+    $('div', { }, () => {
+        text(`Item id: ${id}`)
+    })
+})
 
-// await app.renderSSR(main, { withMeta: true, unmountAtEnd: true })
+router.setRoutes({
+    '/': home,
+    '/about': about,
+    '/{id}': oneItem
+    })
+    .setNotFound(comp(({ path }, { $, text }) => {
+        $('div', { }, () => {
+            text(`Custom not found ${path}`)
+        })
+    }))
+    .push("http://localhost:3000/")
+
+const main = comp((_, { use }) => {
+    use(router)
+})
+
+const response = await app.renderSSR(main, { })
+
+console.log(response)

@@ -36,7 +36,7 @@ export const useSignal = (value, config = {
     const busKey = withBus
         ? typeof config.bus == 'string' ? config.bus : `${useBusId()}`
         : '';
-    if (currentApp.isHydrate && withBus) {
+    if (withBus && currentApp.isHydrate) {
         if (busSignal.has(busKey))
             value = busSignal.get(busKey);
     }
@@ -79,7 +79,7 @@ export const useSignal = (value, config = {
         watch(value, (v) => { value = v; }, { deep: true });
     }
     const useProxy = (raw, path) => {
-        if (typeof raw != 'object' || raw == null)
+        if (typeof raw != 'object' || raw == null || (raw.composable))
             return raw;
         Object.entries(raw).forEach(([key, value]) => {
             raw[key] = useProxy(value, [...path, key]);
@@ -209,7 +209,7 @@ export const fromWeakRef = (data, end = true) => {
         return { value: () => data, set: (v) => data = v, path: '', pathIndex: 0, signal: null };
     if (isSignal(data))
         return { value: () => data.value, set: (v) => data.value = v, path: '$', pathIndex: 0, signal: data };
-    else if (data.hasWeakRef())
+    else if (data != null && data.hasWeakRef())
         return data.weakRef(end);
     return { value: () => data, set: (v) => data = v, path: '', pathIndex: 0, signal: null };
 };

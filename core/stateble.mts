@@ -51,7 +51,7 @@ export const useSignal = <T extends unknown, K = T>(
         ? typeof config.bus == 'string' ? config.bus : `${useBusId()}`
         : ''
     
-    if(currentApp.isHydrate && withBus) {
+    if(withBus && currentApp.isHydrate) {
         if(busSignal.has(busKey))
             value = busSignal.get(busKey) as T
     }
@@ -105,7 +105,7 @@ export const useSignal = <T extends unknown, K = T>(
     }
     
     const useProxy = (raw: any, path: string[]) => {
-        if(typeof raw != 'object' || raw == null)
+        if(typeof raw != 'object' || raw == null || (raw.composable))
             return raw
 
         Object.entries(raw).forEach(([ key, value ]) => {
@@ -270,7 +270,7 @@ export const fromWeakRef = <T extends unknown>(
         // @ts-ignore
         return { value: () => data.value, set: (v: any) => data.value = v, path: '$', pathIndex: 0, signal: data }
     // @ts-ignore
-    else if(data.hasWeakRef())
+    else if(data != null && data.hasWeakRef())
         // @ts-ignore
         return data.weakRef(end)
     return { value: () => data, set: (v: any) => data = v, path: '', pathIndex: 0, signal: null }

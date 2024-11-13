@@ -1,6 +1,6 @@
 {
   "name": "horizon-core",
-  "version": "0.1.0-alpha15",
+  "version": "0.1.0-alpha17-a",
   "description": "Frontend web framework `Horizon`",
   "homepage": "https://github.com/NotElementImport/horizon-core",
   "main": "index.js",
@@ -25,6 +25,14 @@
     "./state": {
       "types": "./types/stateble.d.ts",
       "default": "./bundle/stateble.mjs"
+    },
+    "./router": {
+      "types": "./types/router.d.ts",
+      "default": "./bundle/router.mjs"
+    },
+    "./repository": {
+      "types": "./types/repository.d.ts",
+      "default": "./bundle/repository.mjs"
     },
     "./@types": {
       "types": "./type.d.ts",
