@@ -1,6 +1,5 @@
 import { isClient } from "./app.mjs";
 import { comp } from "./component.mjs";
-import { useId } from "./helpers.mjs";
 import { useSignal } from "./stateble.mjs";
 const instanceRouter = {
     notFound: comp(({ path }, { $, text }) => {
@@ -10,6 +9,7 @@ const instanceRouter = {
     }),
     onPageEnd: (null),
     currentRoute: useSignal({}, { bus: false }),
+    beforeResolve: (() => { }),
     routes: {},
     toNotFound(path) {
         this.currentRoute.value.url = path;
@@ -24,20 +24,28 @@ const instanceRouter = {
         this.currentRoute.value.isNotFound = false;
     }
 };
+const useRouteResolve = (path) => {
+    const capture = router.capture(path);
+    if (capture.isInternalRoute) {
+        for (const middleware of [instanceRouter.beforeResolve, ...(capture.route?.middleware ?? [])]) {
+            if (middleware(capture))
+                return null;
+        }
+    }
+    if (isClient && capture.origin != null) {
+        window.location = capture.fullPath;
+    }
+    if (instanceRouter.onPageEnd) {
+        instanceRouter.onPageEnd();
+        instanceRouter.onPageEnd = null;
+    }
+    if (!capture.isInternalRoute && capture.origin == null)
+        return (instanceRouter.toNotFound(capture.fullPath), false);
+    return (instanceRouter.toLocation(capture), true);
+};
 if (isClient) {
     window.addEventListener("popstate", () => {
-        const capture = router.capture(document.location.toString());
-        if (isClient) {
-            if (capture.origin != null)
-                window.location = capture.fullPath;
-        }
-        if (instanceRouter.onPageEnd) {
-            instanceRouter.onPageEnd();
-            instanceRouter.onPageEnd = null;
-        }
-        if (!capture.isInternalRoute && capture.origin == null)
-            return (instanceRouter.toNotFound(capture.fullPath), false);
-        return (instanceRouter.toLocation(capture), true);
+        useRouteResolve(document.location.toString());
     });
 }
 instanceRouter.toNotFound('');
@@ -47,30 +55,12 @@ const router = comp((_, { dyn, use }) => {
         use(component, isNotFound ? { path: url } : {});
     });
 });
+Object.defineProperty(router, 'defineMiddleware', { get: () => (handle) => handle });
 Object.defineProperty(router, 'getRoutes', { get() { return instanceRouter.routes; } });
 Object.defineProperty(router, 'current', { get() { return instanceRouter.currentRoute.value.capture; } });
 Object.defineProperty(router, 'push', {
     get: () => (value) => {
-        const capture = router.capture(value);
-        if (capture.isInternalRoute && capture.route) {
-            for (const middleware of capture.route.middleware) {
-                if (middleware())
-                    return null;
-            }
-        }
-        if (isClient) {
-            if (capture.origin != null)
-                return window.location = capture.fullPath;
-            else
-                history.pushState(useId(), '', capture.fullPath);
-        }
-        if (instanceRouter.onPageEnd) {
-            instanceRouter.onPageEnd();
-            instanceRouter.onPageEnd = null;
-        }
-        if (!capture.isInternalRoute && capture.origin == null)
-            return (instanceRouter.toNotFound(capture.fullPath), false);
-        return (instanceRouter.toLocation(capture), true);
+        return useRouteResolve(value);
     }
 });
 Object.defineProperty(router, 'pop', {
@@ -86,9 +76,14 @@ Object.defineProperty(router, 'pop', {
 });
 Object.defineProperty(router, 'onPage', {
     get: () => (handle) => {
-        if (isClient)
+        if (!isClient)
             return;
         instanceRouter.onPageEnd = handle();
+    }
+});
+Object.defineProperty(router, 'onBeforeResolve', {
+    get: () => (handle) => {
+        return (instanceRouter.beforeResolve = handle(), router);
     }
 });
 Object.defineProperty(router, 'setNotFound', {
@@ -154,7 +149,7 @@ Object.defineProperty(router, 'capture', {
             if (valid) {
                 captured.isInternalRoute = true;
                 captured.params = params;
-                captured.route = data.component;
+                captured.route = data;
                 break;
             }
         }

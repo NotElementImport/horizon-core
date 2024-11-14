@@ -7,6 +7,8 @@ interface HorizonRouterNotFoundProps {
 type HorizonRouterComponent = Component.Component<HorizonRouterComponentProps, {}>;
 interface HorizonRouter extends HorizonRouterComponent {
     readonly current: Signal.ProxySignal<HorizonRoute>;
+    defineMiddleware(handle: (to: HorizonRoute) => boolean | void): Function;
+    onBeforeResolve(handle: (to: HorizonRoute) => boolean | void): HorizonRouter;
     onPage(handle: () => (() => void)): void;
     pop(or: () => boolean | void): boolean;
     push(url: string | HorizonRouterBuilder): boolean;

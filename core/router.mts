@@ -17,6 +17,8 @@ type HorizonRouterComponent = Component.Component<HorizonRouterComponentProps, {
 
 interface HorizonRouter extends HorizonRouterComponent {
     readonly current: Signal.ProxySignal<HorizonRoute>
+    defineMiddleware(handle: (to: HorizonRoute) => boolean|void): Function
+    onBeforeResolve(handle: (to: HorizonRoute) => boolean|void): HorizonRouter
     onPage(handle: () => (() => void)): void
     pop(or: () => boolean|void): boolean
     push(url: string|HorizonRouterBuilder): boolean
@@ -63,8 +65,8 @@ const instanceRouter = {
         })
     }),
     onPageEnd: (null) as (Function|null),
-    // @ts-ignore
-    currentRoute: useSignal<Route & { isNotFound: boolean, component?: Component.Component, capture?: HorizonRoute, url?: string }>({}, { bus: false }),
+    currentRoute: useSignal<Route & { isNotFound: boolean, component?: Component.Component, capture?: HorizonRoute, url?: string }>({} as any, { bus: false }),
+    beforeResolve: (() => {}) as ((to: HorizonRoute) => (void|boolean)),
     routes: {} as Record<string, Route>,
     toNotFound(path: string) {
         this.currentRoute.value.url = path
@@ -80,25 +82,34 @@ const instanceRouter = {
     }
 }
 
+const useRouteResolve = (path: string|HorizonRouterBuilder) => {
+    // @ts-ignore
+    const capture: HorizonRoute = router.capture(path)
+
+    if(capture.isInternalRoute) {
+        for (const middleware of [instanceRouter.beforeResolve, ...(capture.route?.middleware ?? [])]) {
+            if(middleware(capture))
+                return null
+        }
+    }
+
+    if(isClient && capture.origin != null) {
+        window.location = capture.fullPath as any
+    }
+
+    if(instanceRouter.onPageEnd) {
+        instanceRouter.onPageEnd()
+        instanceRouter.onPageEnd = null
+    }        
+
+    if(!capture.isInternalRoute && capture.origin == null)
+        return (instanceRouter.toNotFound(capture.fullPath), false)
+    return (instanceRouter.toLocation(capture), true)
+}
+
 if(isClient) {
     window.addEventListener("popstate", () => {
-        // @ts-ignore
-        const capture: HorizonRoute = router.capture(document.location.toString())
-
-        if(isClient) {
-            if(capture.origin != null)
-                window.location = capture.fullPath as any
-        }
-
-        if(instanceRouter.onPageEnd) {
-            instanceRouter.onPageEnd()
-            instanceRouter.onPageEnd = null
-        }        
-
-        if(!capture.isInternalRoute && capture.origin == null)
-            return (instanceRouter.toNotFound(capture.fullPath), false)
-        return (instanceRouter.toLocation(capture), true)
-
+        useRouteResolve(document.location.toString())
     });
 }
 
@@ -107,40 +118,17 @@ instanceRouter.toNotFound('')
 const router = comp((_, { dyn, use }) => {
     dyn([ instanceRouter.currentRoute.value.component ], () => {
         const { component, isNotFound, url } = instanceRouter.currentRoute.value
-
         use(component, isNotFound ? { path: url } : { })
     })
 })
+
+Object.defineProperty(router, 'defineMiddleware', { get: () => (handle: Function) => handle })
 Object.defineProperty(router, 'getRoutes', { get() { return instanceRouter.routes } })
 Object.defineProperty(router, 'current',   { get() { return instanceRouter.currentRoute.value.capture } })
 
 Object.defineProperty(router, 'push', { 
     get: () => (value: string|HorizonRouterBuilder) => {
-        // @ts-ignore
-        const capture: HorizonRoute = router.capture(value)
-
-        if(capture.isInternalRoute && capture.route) {
-            for (const middleware of capture.route.middleware) {
-                if(middleware())
-                    return null
-            }
-        }
-
-        if(isClient) {
-            if(capture.origin != null)
-                return window.location = capture.fullPath as any
-            else
-                history.pushState(useId(), '', capture.fullPath)
-        }
-
-        if(instanceRouter.onPageEnd) {
-            instanceRouter.onPageEnd()
-            instanceRouter.onPageEnd = null
-        }
-
-        if(!capture.isInternalRoute && capture.origin == null)
-            return (instanceRouter.toNotFound(capture.fullPath), false)
-        return (instanceRouter.toLocation(capture), true)
+        return useRouteResolve(value)
     }
 })
 
@@ -159,9 +147,15 @@ Object.defineProperty(router, 'pop', {
 
 Object.defineProperty(router, 'onPage', { 
     get: () => (handle: () => (() => void)) => {
-        if(isClient)
+        if(!isClient)
             return
         instanceRouter.onPageEnd = handle()
+    }
+})
+
+Object.defineProperty(router, 'onBeforeResolve', { 
+    get: () => (handle: Function) => {
+        return (instanceRouter.beforeResolve = handle(), router)
     }
 })
 
@@ -236,7 +230,7 @@ Object.defineProperty(router, 'capture', {
             if(valid) {
                 captured.isInternalRoute = true
                 captured.params = params
-                captured.route = data.component as any
+                captured.route = data
                 break
             }
         }

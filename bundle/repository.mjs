@@ -3,7 +3,7 @@ const repositoryArchive = new Map();
 const compileRepository = (object, args = []) => {
     const instance = new object(...args);
     for (const propertyName of Object.getOwnPropertyNames(instance)) {
-        const signal = useSignal(instance[propertyName], {});
+        const signal = useSignal(instance[propertyName], { bus: false });
         Object.defineProperty(instance, propertyName, {
             get: () => signal.value,
             set: (v) => { signal.value = v; }
