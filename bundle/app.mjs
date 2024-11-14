@@ -177,9 +177,12 @@ async function render(app, comp, props) {
                 };
                 const index = app.hydCounter;
                 stack.push(async () => {
+                    const oldCounter = app.hydCounter;
+                    app.hydCounter = index;
                     app.hydMeta = hash;
                     await render(app, scoped, props = { ...props, hash, slot });
                     app.hydMeta = oldMeta;
+                    app.hydCounter = oldCounter;
                     app.pipeTo(scoped.composable, index, parent);
                 });
                 app.hydCounter += 1;
@@ -282,18 +285,14 @@ async function render(app, comp, props) {
                         const oldStack = app.stack;
                         app.stack = stack;
                         stack.push(async () => {
-                            const oldMeta = app.hydMeta;
                             await dynamicRender();
-                            app.hydMeta = oldMeta;
                         });
                         stack.run(true).then(() => app.stack = oldStack);
                     });
                 }
                 const index = app.hydCounter;
                 stack.push(async () => {
-                    const oldMeta = app.hydMeta;
                     await dynamicRender();
-                    app.hydMeta = oldMeta;
                     app.pipeTo(node, index, parent);
                     app.domPipeTo(vDom.dom, index, parent);
                 });

@@ -8,6 +8,7 @@ const instanceRouter = {
             text(`Not found ${path}`.trim());
         });
     }),
+    onPageEnd: (null),
     currentRoute: useSignal({}, { bus: false }),
     routes: {},
     toNotFound(path) {
@@ -19,18 +20,20 @@ const instanceRouter = {
     toLocation(captute) {
         this.currentRoute.value.url = captute.fullPath;
         this.currentRoute.value.capture = captute;
-        this.currentRoute.value.component = captute.component;
+        this.currentRoute.value.component = captute.route?.component;
         this.currentRoute.value.isNotFound = false;
     }
 };
 if (isClient) {
-    window.addEventListener("popstate", (event) => {
+    window.addEventListener("popstate", () => {
         const capture = router.capture(document.location.toString());
         if (isClient) {
             if (capture.origin != null)
                 window.location = capture.fullPath;
-            else
-                history.pushState(useId(), '', capture.fullPath);
+        }
+        if (instanceRouter.onPageEnd) {
+            instanceRouter.onPageEnd();
+            instanceRouter.onPageEnd = null;
         }
         if (!capture.isInternalRoute && capture.origin == null)
             return (instanceRouter.toNotFound(capture.fullPath), false);
@@ -49,15 +52,43 @@ Object.defineProperty(router, 'current', { get() { return instanceRouter.current
 Object.defineProperty(router, 'push', {
     get: () => (value) => {
         const capture = router.capture(value);
+        if (capture.isInternalRoute && capture.route) {
+            for (const middleware of capture.route.middleware) {
+                if (middleware())
+                    return null;
+            }
+        }
         if (isClient) {
             if (capture.origin != null)
-                window.location = capture.fullPath;
+                return window.location = capture.fullPath;
             else
                 history.pushState(useId(), '', capture.fullPath);
+        }
+        if (instanceRouter.onPageEnd) {
+            instanceRouter.onPageEnd();
+            instanceRouter.onPageEnd = null;
         }
         if (!capture.isInternalRoute && capture.origin == null)
             return (instanceRouter.toNotFound(capture.fullPath), false);
         return (instanceRouter.toLocation(capture), true);
+    }
+});
+Object.defineProperty(router, 'pop', {
+    get: () => () => {
+        if (!isClient)
+            return false;
+        if (instanceRouter.onPageEnd) {
+            instanceRouter.onPageEnd();
+            instanceRouter.onPageEnd = null;
+        }
+        return (window.history.back(), true);
+    }
+});
+Object.defineProperty(router, 'onPage', {
+    get: () => (handle) => {
+        if (isClient)
+            return;
+        instanceRouter.onPageEnd = handle();
     }
 });
 Object.defineProperty(router, 'setNotFound', {
@@ -86,15 +117,9 @@ Object.defineProperty(router, 'setRoutes', {
                                 else if (my[0] == '{')
                                     response.params[my.slice(1, -1)] = other;
                             }
-                            for (const middleware of middlewares) {
-                                const middlewareResponse = middleware() ?? false;
-                                if (middlewareResponse) {
-                                    response.valid = false;
-                                    break;
-                                }
-                            }
                             return response;
                         },
+                        middleware: middlewares,
                         component: pathProps,
                     };
                     continue;
@@ -111,7 +136,7 @@ Object.defineProperty(router, 'capture', {
         let path = typeof url == 'string' ? url : url.path;
         let query = typeof url == 'string' ? undefined : url.query;
         const parsedURL = new URL(path, path[0] == '/' ? 'http://localhost' : undefined);
-        const captured = {
+        let captured = {
             fullPath: url,
             path: parsedURL.pathname,
             origin: parsedURL.origin.includes('//localhost') ? null : parsedURL.origin,
@@ -119,7 +144,7 @@ Object.defineProperty(router, 'capture', {
             query: query ?? Object.fromEntries(parsedURL.searchParams.entries()),
             params: {},
             isInternalRoute: false,
-            component: undefined
+            route: undefined
         };
         if (captured.origin != null)
             return captured;
@@ -129,7 +154,7 @@ Object.defineProperty(router, 'capture', {
             if (valid) {
                 captured.isInternalRoute = true;
                 captured.params = params;
-                captured.component = data.component;
+                captured.route = data.component;
                 break;
             }
         }

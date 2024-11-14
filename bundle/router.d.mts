@@ -7,9 +7,9 @@ interface HorizonRouterNotFoundProps {
 type HorizonRouterComponent = Component.Component<HorizonRouterComponentProps, {}>;
 interface HorizonRouter extends HorizonRouterComponent {
     readonly current: Signal.ProxySignal<HorizonRoute>;
-    rollback(or: () => boolean | void): boolean;
+    onPage(handle: () => (() => void)): void;
+    pop(or: () => boolean | void): boolean;
     push(url: string | HorizonRouterBuilder): boolean;
-    redirect(url: string | HorizonRouterBuilder): boolean;
     capture(url: string): HorizonRoute;
     setRoutes(struct: HorizonRouteStruct): HorizonRouter;
     setNotFound(comp: Component.Component<HorizonRouterNotFoundProps, {}>): HorizonRouter;
@@ -33,12 +33,13 @@ type HorizonRoute = {
     query: Record<string, unknown>;
     params: Record<string, unknown>;
     isInternalRoute: boolean;
-    component: Component.Component | undefined;
+    route?: Route;
 };
 interface Route {
+    middleware: Function[];
     check: (otherURL: string[]) => {
-        valid: boolean;
-        params: Record<string, unknown>;
+        valid: true;
+        params: Record<string, any>;
     };
     component: Component.Component;
 }

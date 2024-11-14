@@ -257,9 +257,12 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
 
                 const index = app.hydCounter
                 stack.push(async () => {
+                    const oldCounter = app.hydCounter;
+                    app.hydCounter = index;
                     app.hydMeta = hash
                     await render(app, scoped, props = { ...props, hash, slot })
                     app.hydMeta = oldMeta
+                    app.hydCounter = oldCounter;
                     app.pipeTo(scoped.composable, index, parent)
                 })
                 app.hydCounter += 1
@@ -378,9 +381,7 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
                         app.stack = stack
                         
                         stack.push(async () => {
-                            const oldMeta = app.hydMeta
                             await dynamicRender()
-                            app.hydMeta = oldMeta
                         })
 
                         stack.run(true).then(() => app.stack = oldStack)
@@ -389,9 +390,7 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
 
                 const index = app.hydCounter
                 stack.push(async () => {
-                    const oldMeta = app.hydMeta
                     await dynamicRender()
-                    app.hydMeta = oldMeta
 
                     app.pipeTo(node, index, parent) 
                     app.domPipeTo(vDom.dom, index, parent)

@@ -21,11 +21,13 @@ export function mod(slot) {
         };
         const index = app.hydCounter;
         stack.push(async () => {
-            app.hydCounter = app.hydCounter;
+            const oldCounter = app.hydCounter;
+            app.hydCounter = index;
             app.hydMeta = hash;
             app.pipeTo(scoped.composable, index, parent);
             await currentApp.renderComponent(scoped, { ...props, hash, slot: $slot });
             app.hydMeta = oldMeta;
+            app.hydCounter = oldCounter;
         });
         app.hydCounter += 1;
     };

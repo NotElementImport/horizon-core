@@ -16,10 +16,10 @@ interface HorizonRouterNotFoundProps {
 type HorizonRouterComponent = Component.Component<HorizonRouterComponentProps, {}>
 
 interface HorizonRouter extends HorizonRouterComponent {
-    readonly current: Signal.ProxySignal<HorizonRoute> 
-    rollback(or: () => boolean|void): boolean
+    readonly current: Signal.ProxySignal<HorizonRoute>
+    onPage(handle: () => (() => void)): void
+    pop(or: () => boolean|void): boolean
     push(url: string|HorizonRouterBuilder): boolean
-    redirect(url: string|HorizonRouterBuilder): boolean
     capture(url: string): HorizonRoute
     setRoutes(struct: HorizonRouteStruct): HorizonRouter
     setNotFound(comp: Component.Component<HorizonRouterNotFoundProps, {}>): HorizonRouter
@@ -46,11 +46,12 @@ type HorizonRoute = {
     query: Record<string, unknown>
     params: Record<string, unknown>
     isInternalRoute: boolean
-    component: Component.Component|undefined
+    route?: Route
 }
 
 interface Route {
-    check: (otherURL: string[]) => { valid: boolean, params: Record<string, unknown> }
+    middleware: Function[]
+    check: (otherURL: string[]) => { valid: true, params: Record<string, any> }
     component: Component.Component
 }
 
@@ -61,6 +62,7 @@ const instanceRouter = {
             text(`Not found ${path}`.trim())
         })
     }),
+    onPageEnd: (null) as (Function|null),
     // @ts-ignore
     currentRoute: useSignal<Route & { isNotFound: boolean, component?: Component.Component, capture?: HorizonRoute, url?: string }>({}, { bus: false }),
     routes: {} as Record<string, Route>,
@@ -73,7 +75,7 @@ const instanceRouter = {
     toLocation(captute: HorizonRoute) {
         this.currentRoute.value.url = captute.fullPath
         this.currentRoute.value.capture = captute
-        this.currentRoute.value.component = captute.component as any
+        this.currentRoute.value.component = captute.route?.component as any
         this.currentRoute.value.isNotFound = false
     }
 }
@@ -87,6 +89,11 @@ if(isClient) {
             if(capture.origin != null)
                 window.location = capture.fullPath as any
         }
+
+        if(instanceRouter.onPageEnd) {
+            instanceRouter.onPageEnd()
+            instanceRouter.onPageEnd = null
+        }        
 
         if(!capture.isInternalRoute && capture.origin == null)
             return (instanceRouter.toNotFound(capture.fullPath), false)
@@ -112,16 +119,49 @@ Object.defineProperty(router, 'push', {
         // @ts-ignore
         const capture: HorizonRoute = router.capture(value)
 
+        if(capture.isInternalRoute && capture.route) {
+            for (const middleware of capture.route.middleware) {
+                if(middleware())
+                    return null
+            }
+        }
+
         if(isClient) {
             if(capture.origin != null)
-                window.location = capture.fullPath as any
+                return window.location = capture.fullPath as any
             else
                 history.pushState(useId(), '', capture.fullPath)
+        }
+
+        if(instanceRouter.onPageEnd) {
+            instanceRouter.onPageEnd()
+            instanceRouter.onPageEnd = null
         }
 
         if(!capture.isInternalRoute && capture.origin == null)
             return (instanceRouter.toNotFound(capture.fullPath), false)
         return (instanceRouter.toLocation(capture), true)
+    }
+})
+
+Object.defineProperty(router, 'pop', { 
+    get: () => () => {
+        if(!isClient) return false
+
+        if(instanceRouter.onPageEnd) {
+            instanceRouter.onPageEnd()
+            instanceRouter.onPageEnd = null
+        }
+
+        return (window.history.back(), true)
+    }
+})
+
+Object.defineProperty(router, 'onPage', { 
+    get: () => (handle: () => (() => void)) => {
+        if(isClient)
+            return
+        instanceRouter.onPageEnd = handle()
     }
 })
 
@@ -144,7 +184,7 @@ Object.defineProperty(router, 'setRoutes', {
                     const explode = route.split('/')
                     instanceRouter.routes[route] = {
                         check(otherURL) {
-                            const response = { valid: true, params: {} as any }
+                            const response: any = { valid: true, params: {} }
                             if(otherURL.length != explode.length)
                                 return (response.valid = false, response)
                             for (let i = 0; i < otherURL.length; i ++) {
@@ -152,15 +192,9 @@ Object.defineProperty(router, 'setRoutes', {
                                 if(my[0] != '{' && my != other) return (response.valid = false, response)
                                 else if(my[0] == '{') response.params[my.slice(1,-1)] = other
                             }
-                            for (const middleware of middlewares) {
-                                const middlewareResponse = middleware() ?? false
-
-                                if(middlewareResponse) {
-                                    response.valid = false; break
-                                }
-                            }
                             return response
                         },
+                        middleware: middlewares,
                         // @ts-ignore
                         component: pathProps,
                     }
@@ -181,7 +215,7 @@ Object.defineProperty(router, 'capture', {
         let path = typeof url == 'string' ? url : url.path;
         let query = typeof url == 'string' ? undefined : url.query;
         const parsedURL = new URL(path, path[0] == '/' ? 'http://localhost' : undefined)
-        const captured = {
+        let captured = {
             fullPath: url,
             path: parsedURL.pathname,
             origin: parsedURL.origin.includes('//localhost') ? null : parsedURL.origin,
@@ -189,7 +223,7 @@ Object.defineProperty(router, 'capture', {
             query: query ?? Object.fromEntries(parsedURL.searchParams.entries()),
             params: {},
             isInternalRoute: false,
-            component: undefined
+            route: undefined as Route|undefined
         }
 
         if(captured.origin != null)
@@ -202,7 +236,7 @@ Object.defineProperty(router, 'capture', {
             if(valid) {
                 captured.isInternalRoute = true
                 captured.params = params
-                captured.component = data.component as any
+                captured.route = data.component as any
                 break
             }
         }

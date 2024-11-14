@@ -151,7 +151,7 @@ await useTest('Complex / Render module', async () => {
     })
     const testComp = comp((_, { }) => { testMod({ title: 'Test title' }) })
     const response = await appForTest.renderSSR(testComp)
-    if(response != '<div aria-label="Title" hash="$0$1div"><span hash="$0$1div0txt">Test title</span></div>')
+    if(response != '<div aria-label="Title" hash="$0$0div"><span hash="$0$0div0txt">Test title</span></div>')
         throw `Component string isn't right: ${response}`
 })
 
@@ -163,7 +163,7 @@ await useTest('Complex / Render component', async () => {
     })
     const testComp = comp((_, { use }) => { use(testMod, { title: 'Test title' }) })
     const response = await appForTest.renderSSR(testComp)
-    if(response != '<div aria-label="Title" hash="$0$1div"><span hash="$0$1div0txt">Test title</span></div>')
+    if(response != '<div aria-label="Title" hash="$0$0div"><span hash="$0$0div0txt">Test title</span></div>')
         throw `Component string isn't right: ${response}`
 })
 
@@ -175,7 +175,7 @@ await useTest('Complex / Slot in component', async () => {
     })
     const testComp = comp((_, { use, text }) => { use(testMod, {}, () => { text('Test title') }) })
     const response = await appForTest.renderSSR(testComp)
-    if(response != '<div aria-label="Title" hash="$0$1div"><span hash="$0$1div0slt0txt">Test title</span></div>')
+    if(response != '<div aria-label="Title" hash="$0$0div"><span hash="$0$0div0slt0txt">Test title</span></div>')
         throw `Component string isn't right: ${response}`
 })
 

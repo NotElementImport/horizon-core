@@ -6,8 +6,6 @@ import router from "./bundle/router.mjs";
 const app = defineApp()
 
 const home = comp((_, { $, text }) => {
-    console.log(router.current.port)
-
     $('div', { }, () => {
         text('Home')
     })
