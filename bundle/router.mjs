@@ -23,6 +23,20 @@ const instanceRouter = {
         this.currentRoute.value.isNotFound = false;
     }
 };
+if (isClient) {
+    window.addEventListener("popstate", (event) => {
+        const capture = router.capture(document.location.toString());
+        if (isClient) {
+            if (capture.origin != null)
+                window.location = capture.fullPath;
+            else
+                history.pushState(useId(), '', capture.fullPath);
+        }
+        if (!capture.isInternalRoute && capture.origin == null)
+            return (instanceRouter.toNotFound(capture.fullPath), false);
+        return (instanceRouter.toLocation(capture), true);
+    });
+}
 instanceRouter.toNotFound('');
 const router = comp((_, { dyn, use }) => {
     dyn([instanceRouter.currentRoute.value.component], () => {

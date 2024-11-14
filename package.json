@@ -1,6 +1,6 @@
 {
   "name": "horizon-core",
-  "version": "0.1.0-alpha17-a",
+  "version": "0.1.0-alpha18",
   "description": "Frontend web framework `Horizon`",
   "homepage": "https://github.com/NotElementImport/horizon-core",
   "main": "index.js",

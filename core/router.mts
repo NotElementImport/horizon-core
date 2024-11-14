@@ -5,7 +5,6 @@ import { useId } from "./helpers.mjs";
 import { useSignal } from "./stateble.mjs";
 
 // Types
-
 interface HorizonRouterComponentProps {
 
 }
@@ -56,7 +55,6 @@ interface Route {
 }
 
 // Logic
-
 const instanceRouter = {
     notFound: comp<HorizonRouterNotFoundProps, {}>(({ path }, { $, text }) => {
         $('div', { }, () => {
@@ -78,6 +76,23 @@ const instanceRouter = {
         this.currentRoute.value.component = captute.component as any
         this.currentRoute.value.isNotFound = false
     }
+}
+
+if(isClient) {
+    window.addEventListener("popstate", () => {
+        // @ts-ignore
+        const capture: HorizonRoute = router.capture(document.location.toString())
+
+        if(isClient) {
+            if(capture.origin != null)
+                window.location = capture.fullPath as any
+        }
+
+        if(!capture.isInternalRoute && capture.origin == null)
+            return (instanceRouter.toNotFound(capture.fullPath), false)
+        return (instanceRouter.toLocation(capture), true)
+
+    });
 }
 
 instanceRouter.toNotFound('')
