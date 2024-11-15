@@ -32,14 +32,12 @@ export const useScrollLock = () => {
     });
 };
 export const useLocalStorage = (key, { defaultValue = null } = {}) => {
-    return useSignal(null, {
+    return useSignal(defaultValue, {
         key,
         onInit(signal) {
             watch(signal, (v) => localStorage.setItem(key, JSON.stringify(v)), { deep: true });
             if (isClient)
                 signal.value = JSON.parse(localStorage.getItem(key) ?? 'null') ?? defaultValue;
-            else
-                signal.value = defaultValue;
         }
     });
 };

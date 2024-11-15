@@ -33,7 +33,7 @@ router.setRoutes({
             text(`Custom not found ${path}`)
         })
     }))
-    .push("http://localhost:3000/")
+    .push("http://localhost:3000///")
 
 const main = comp((_, { use }) => {
     use(router)

@@ -12,10 +12,8 @@ export const useStyle = <T extends CSS.Style|string>(object: T): T extends strin
     )
     
     if(typeof signal.value == 'object')
-        // @ts-ignore
-        return useProxySignal(signal)
-    // @ts-ignore
-    return signal
+        return useProxySignal(signal) as (T extends string ? StyleStringSignal : StyleSignal)
+    return signal as unknown as (T extends string ? StyleStringSignal : StyleSignal)
 }
 
 export const useColorSheme = (config: { get?: () => Composable.ColorSheme, set?: (v: Composable.ColorSheme) => void } = {}) => {
@@ -33,6 +31,17 @@ export const useColorSheme = (config: { get?: () => Composable.ColorSheme, set?:
         })
 }
 
+interface ProcessConfig {
+
+}
+
+export const useProcess = (
+    handle: Function, 
+    config: ProcessConfig
+) => {
+
+}
+
 export const useScrollLock = () => {
     return useSignal(false, {
         key: 'client-system-scroll-lock',
@@ -47,15 +56,13 @@ export const useLocalStorage = <T extends any>(
     { defaultValue = null as T }
     : { defaultValue?: T } = {}
 ) => {
-    return useSignal<T>(null as T, {
+    return useSignal<T>(defaultValue, {
         key,
         onInit(signal) {
             watch(signal, (v) => localStorage.setItem(key, JSON.stringify(v)), { deep: true })      
 
             if(isClient)
                 signal.value = JSON.parse(localStorage.getItem(key) ?? 'null') ?? defaultValue
-            else
-                signal.value = defaultValue
         }
     })
 }
