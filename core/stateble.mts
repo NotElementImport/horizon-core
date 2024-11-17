@@ -71,6 +71,9 @@ export const useSignal = <T extends unknown, K = T>(
         get asRaw() {
             return signal[sAsRaw]
         },
+        get _rawValue() {
+            return value
+        },
         get value() {
             // @ts-ignore
             const rawValue = (value ?? fakeNull).asWeakRef({
@@ -222,10 +225,7 @@ export const watch = <T extends unknown>(
         ? async (value: any) => handle(value)
         : handle
 
-    let isArray = Array.isArray(value)
     if(isSignal(value) && !flagError) {
-        // @ts-ignore
-        isArray = Array.isArray(value.value)
         // @ts-ignore
         const unWatch = () => value[sWatch].delete(key)
         // @ts-ignore
@@ -268,7 +268,7 @@ export const fromWeakRef = <T extends unknown>(
     
     if(isSignal(data))
         // @ts-ignore
-        return { value: () => data.value, set: (v: any) => data.value = v, path: '$', pathIndex: 0, signal: data }
+        return { value: () => data._rawValue, set: (v: any) => data.value = v, path: '$', pathIndex: 0, signal: data }
     // @ts-ignore
     else if(data != null && data.hasWeakRef())
         // @ts-ignore

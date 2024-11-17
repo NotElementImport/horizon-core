@@ -18,11 +18,11 @@ export const useStyle = <T extends CSS.Style|string>(object: T): T extends strin
 
 export const useColorSheme = (config: { get?: () => Composable.ColorSheme, set?: (v: Composable.ColorSheme) => void } = {}) => {
     return useSignal<Composable.ColorSheme>(
-        config.get ? (config.get() ?? 'light') : 'light', {
+        config.get ? (config.get() ?? null) : null as any, {
             key: 'client-system-theme',
             onSet(v) { if(config.set) config.set(v) },
             onInit(signal) {
-                if(isClient) {
+                if(isClient && (signal.value == 'null' as any)) {
                     signal.value = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
                     window.matchMedia('(prefers-color-scheme: dark)')
                         .addEventListener('change', event => signal.value = event.matches ? 'dark' : 'light')
@@ -31,16 +31,14 @@ export const useColorSheme = (config: { get?: () => Composable.ColorSheme, set?:
         })
 }
 
-interface ProcessConfig {
+// interface ProcessConfig {
 
-}
+// }
 
-export const useProcess = (
-    handle: Function, 
-    config: ProcessConfig
-) => {
-
-}
+// export const useProcess = (
+//     handle: Function, 
+//     config: ProcessConfig
+// ) => {}
 
 export const useScrollLock = () => {
     return useSignal(false, {

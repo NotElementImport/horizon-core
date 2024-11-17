@@ -5,40 +5,10 @@ import router from "./bundle/router.mjs";
 
 const app = defineApp()
 
-const home = comp((_, { $, text }) => {
-    $('div', { }, () => {
-        text('Home')
+const home = comp((_, { $, input }) => {
+    const firstName = useSignal('')
+
+    input({
+        '#model': firstName,
     })
 })
-
-const about = comp((_, { $, text }) => {
-    $('div', { }, () => {
-        text('About')
-    })
-})
-
-const oneItem = comp((_, { $, text }) => {
-    $('div', { }, () => {
-        text(`Item id: ${id}`)
-    })
-})
-
-router.setRoutes({
-    '/': home,
-    '/about': about,
-    '/{id}': oneItem
-    })
-    .setNotFound(comp(({ path }, { $, text }) => {
-        $('div', { }, () => {
-            text(`Custom not found ${path}`)
-        })
-    }))
-    .push("http://localhost:3000///")
-
-const main = comp((_, { use }) => {
-    use(router)
-})
-
-const response = await app.renderSSR(main, { })
-
-console.log(response)

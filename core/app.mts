@@ -343,6 +343,46 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
                 app.hydCounter += 1
                 return vDom
             },
+            input($props: any) {
+                const stack = app.stack
+                const hash  = app.hydMeta + `${app.hydCounter}inp`
+
+                const props = { ...$props, hash }
+                const vDom  = toDom('input', props)
+
+                if($props['#model'] && isClient) {
+                    const type = ({ 'checkbox': 1, 'number': 2 })[$props.type ?? 'text'] ?? 0
+
+                    let model = $props['#model'];
+                    useStrongRef(model, raw => {
+                        switch(type) {
+                            case 0: { vDom.dom.value = raw } break
+                            case 1: { vDom.dom.checked = raw } break
+                            case 2: { vDom.dom.valueAsNumber = raw } break
+                        }
+                    });
+
+                    vDom.dom.addEventListener(($props['#lazy'] ?? false) ? 'change' : 'input', e => {
+                        switch(type) {
+                            case 0: { model.value = e.target.value } break
+                            case 1: { model.value = e.target.checked } break
+                            case 2: { model.value = e.target.valueAsNumber } break
+                        }
+                    });
+                }
+
+                const parent = app.leadComposable
+                const index = app.hydCounter
+                stack.push(async () => {
+                    const node = useComposite('input', props, true)
+                    node.dom = vDom.dom
+                    app.pipeTo(node, index, parent)
+                    app.domPipeTo(vDom.dom, index, parent)
+                })
+
+                app.hydCounter += 1
+                return vDom
+            },
             div(...args: any) {
                 return $nodes.$('div', ...args)
             },
@@ -494,6 +534,12 @@ function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
             case 'lost': {
                 dom.addEventListener('mouseleave', handle as any)
             } break
+            case 'change': {
+                dom.addEventListener('change', handle as any)
+            } break
+            case 'input': {
+                dom.addEventListener('input', handle as any)
+            } break
         }
     }
 
@@ -512,6 +558,8 @@ function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
             ?? document.createElement(type)
 
         for (const [key, value] of Object.entries(props)) {
+            if(key[0] == '#') continue
+
             if(key == 'html')
                 useStrongRef(value, (v, unwatch) => {
                     if(isDeleted()) return unwatch()

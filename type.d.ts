@@ -116,6 +116,36 @@ export namespace Component {
         '@lost.stop'?: (ev:MouseEvent) => unknown 
     }
 
+    interface AtomChangeEventConfig {
+        /**
+         * Event Listener `change`
+         */
+        '@change'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `change` with `preventDefault()` modificator
+         */
+        '@change.prevent'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `change` with `stopPropagation()` modificator
+         */
+        '@change.stop'?: (ev:MouseEvent) => unknown 
+    }
+
+    interface AtomInputEventConfig {
+        /**
+         * Event Listener `input`
+         */
+        '@input'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `input` with `preventDefault()` modificator
+         */
+        '@input.prevent'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `input` with `stopPropagation()` modificator
+         */
+        '@input.stop'?: (ev:MouseEvent) => unknown 
+    }
+
     interface AtomBasicConfig {
         /** tag `style` attribute */
         style?: Props.OrSignal<CSS.Style|string>
@@ -139,10 +169,17 @@ export namespace Component {
         loading?: 'lazy'|'eager'
     }
 
+    type AtomInputConfig = AtomConfig & AtomChangeEventConfig & AtomInputEventConfig & {
+        '#model': Signal.Signal<any>
+        '#lazy'?: boolean
+        type: 'checkbox'|'text'|'number'|'password'|'date'|'datetime-local'|'search'|'tel'|'time'|'url'|'week'|'month'|'color'|'file'|'radio'|'range'
+    }
+
     interface AtomList<S extends Record<string, any>> {
         onUnmount(handle: () => void): void
         $(type: keyof HTMLElementTagNameMap, props?: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
         img(src: Props.OrSignal<string>, props?: AtomImgConfig): AtomResponse
+        input(props?: AtomInputConfig): AtomResponse
         div(props: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
         text(content: Props.OrSignal<unknown>, props?: AtomConfig): AtomResponse
         

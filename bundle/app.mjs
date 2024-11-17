@@ -253,6 +253,29 @@ async function render(app, comp, props) {
                 app.hydCounter += 1;
                 return vDom;
             },
+            input($props) {
+                const stack = app.stack;
+                const hash = app.hydMeta + `${app.hydCounter}inp`;
+                const props = { ...$props, hash };
+                const vDom = toDom('input', props);
+                if ($props['#model'] && isClient) {
+                    let model = $props['#model'];
+                    useStrongRef(model, raw => vDom.dom.value = raw);
+                    vDom.dom.addEventListener(($props['#lazy'] ?? false) ? 'input' : 'change', e => {
+                        model.value = e.target.value;
+                    });
+                }
+                const parent = app.leadComposable;
+                const index = app.hydCounter;
+                stack.push(async () => {
+                    const node = useComposite('input', props, true);
+                    node.dom = vDom.dom;
+                    app.pipeTo(node, index, parent);
+                    app.domPipeTo(vDom.dom, index, parent);
+                });
+                app.hydCounter += 1;
+                return vDom;
+            },
             div(...args) {
                 return $nodes.$('div', ...args);
             },
@@ -384,6 +407,16 @@ function toDom(type, props) {
                     dom.addEventListener('mouseleave', handle);
                 }
                 break;
+            case 'change':
+                {
+                    dom.addEventListener('change', handle);
+                }
+                break;
+            case 'input':
+                {
+                    dom.addEventListener('input', handle);
+                }
+                break;
         }
     };
     let isHydrate = true, alive = true;
@@ -397,6 +430,8 @@ function toDom(type, props) {
         dom = document.querySelector(`[hash="${props.hash}"]`)
             ?? document.createElement(type);
         for (const [key, value] of Object.entries(props)) {
+            if (key[0] == '#')
+                continue;
             if (key == 'html')
                 useStrongRef(value, (v, unwatch) => {
                     if (isDeleted())
