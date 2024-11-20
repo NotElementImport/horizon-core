@@ -15,3 +15,23 @@ export const useStylePrettify = (style) => {
     return Object.entries(style)
         .reduce((acc, [key, value]) => acc + `${key.replace('webkit', '-webkit').split(/(?=[A-Z])/).join('-').toLowerCase()}: ${value};`, '');
 };
+export const toDelay = (signature, from = undefined) => {
+    from = (from ?? new Date());
+    if (from && !(from instanceof Date))
+        from = new Date(from);
+    const parsedSignature = Date.parse(signature);
+    if (!Number.isNaN(parsedSignature))
+        return parsedSignature - from.getTime();
+    const dateSignature = new Date();
+    for (let timeSignature of signature.split('+')) {
+        timeSignature = timeSignature.trim();
+        const [value, timeType] = timeSignature.split(' ');
+        if (timeType.includes('sec'))
+            dateSignature.setSeconds(dateSignature.getSeconds() + +value);
+        if (timeType.includes('min'))
+            dateSignature.setMinutes(dateSignature.getMinutes() + +value);
+        if (timeType.includes('hour'))
+            dateSignature.setHours(dateSignature.getHours() + +value);
+    }
+    return (dateSignature).getTime() - from.getTime();
+};

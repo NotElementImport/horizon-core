@@ -50,7 +50,7 @@ export const useSignal = <T extends unknown, K = T>(
     const busKey  = withBus
         ? typeof config.bus == 'string' ? config.bus : `${useBusId()}`
         : ''
-    
+
     if(withBus && currentApp.isHydrate) {
         if(busSignal.has(busKey))
             value = busSignal.get(busKey) as T

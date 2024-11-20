@@ -6,6 +6,9 @@ export function useStack($default = []) {
         push(task) {
             tasks.push(task);
         },
+        fill($tasks) {
+            tasks = $tasks;
+        },
         async spread() {
             if (isRunning)
                 return;

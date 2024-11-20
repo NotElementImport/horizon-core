@@ -54,6 +54,9 @@ export const useSignal = (value, config = {
         get asRaw() {
             return signal[sAsRaw];
         },
+        get _rawValue() {
+            return value;
+        },
         get value() {
             const rawValue = (value ?? fakeNull).asWeakRef({
                 value: () => value,
@@ -175,9 +178,7 @@ export const watch = (value, handle, config = {}) => {
     const launch = flush == 'async'
         ? async (value) => handle(value)
         : handle;
-    let isArray = Array.isArray(value);
     if (isSignal(value) && !flagError) {
-        isArray = Array.isArray(value.value);
         const unWatch = () => value[sWatch].delete(key);
         value[sWatch].set(key, (value, path) => {
             if (!deep && path.length != 1)
@@ -208,7 +209,7 @@ export const fromWeakRef = (data, end = true) => {
     if (typeof data == 'undefined')
         return { value: () => data, set: (v) => data = v, path: '', pathIndex: 0, signal: null };
     if (isSignal(data))
-        return { value: () => data.value, set: (v) => data.value = v, path: '$', pathIndex: 0, signal: data };
+        return { value: () => data._rawValue, set: (v) => data.value = v, path: '$', pathIndex: 0, signal: data };
     else if (data != null && data.hasWeakRef())
         return data.weakRef(end);
     return { value: () => data, set: (v) => data = v, path: '', pathIndex: 0, signal: null };

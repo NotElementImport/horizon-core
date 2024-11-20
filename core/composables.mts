@@ -1,6 +1,7 @@
 import { Composable, CSS, Signal } from "../type"
 import { isClient } from "./app.mjs"
-import { useStylePrettify } from "./helpers.mjs"
+import { toDelay, useStylePrettify } from "./helpers.mjs"
+import { useStack } from "./stack.mjs"
 import { useProxySignal, useSignal, watch } from "./stateble.mjs"
 
 type StyleSignal = CSS.Style
@@ -31,14 +32,60 @@ export const useColorSheme = (config: { get?: () => Composable.ColorSheme, set?:
         })
 }
 
-// interface ProcessConfig {
+interface ProcessConfig {
+    at?: string|Date|number,
+    period?: number|string
+}
 
-// }
+interface Process<T> extends Promise<T> {
+    abort: () => void
+}
 
-// export const useProcess = (
-//     handle: Function, 
-//     config: ProcessConfig
-// ) => {}
+export const useProcess = (
+    handle: (abort: () => void) => unknown, 
+    config: ProcessConfig = {}
+) => {
+    const launchProcess = async (resolve: Function) => {
+        periodAt != null 
+            ? (intervalProcces = setInterval(async () => { await handle(task.abort) }, periodAt as number))
+            : (await handle(resolve as any), resolve())
+    }
+    let   processAt = config.at ?? null
+    let   periodAt  = config.period ?? null
+    let   timeoutProcces: any  = null
+    let   intervalProcces: any = null
+    let   outerResolve: any    = null
+
+    if(processAt != null && typeof processAt == 'string')
+        processAt = toDelay(processAt)
+    if(periodAt != null && typeof periodAt == 'string')
+        periodAt = toDelay(periodAt)
+
+    const task: Process<void> = new Promise<void>(async (resolve) => {
+        outerResolve = resolve
+        if(processAt == null) return await launchProcess(resolve)
+        timeoutProcces = setTimeout(async () => await launchProcess(resolve), processAt as number)
+    }) as any
+
+    task.abort = () => {
+        if(timeoutProcces)
+            clearTimeout(timeoutProcces)
+        if(intervalProcces)
+            clearInterval(intervalProcces)
+        outerResolve()
+    }
+
+    return task
+}
+
+export const useParallel = async (threads: object|Function[]) => {
+    const task = useStack()
+    let output = {} as Record<any, unknown>
+    task.fill(Object.entries(threads).map(thread => {
+        return async () => output[thread[0]] = await thread[1]()
+    }))
+    return (await task.spread(), Array.isArray(threads) ? Array.from(output as any) : output)
+}
 
 export const useScrollLock = () => {
     return useSignal(false, {

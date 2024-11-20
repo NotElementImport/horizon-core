@@ -6,6 +6,15 @@ export declare const useColorSheme: (config?: {
     get?: () => Composable.ColorSheme;
     set?: (v: Composable.ColorSheme) => void;
 }) => Signal.Signal<Composable.ColorSheme, Composable.ColorSheme>;
+interface ProcessConfig {
+    at?: string | Date | number;
+    period?: number | string;
+}
+interface Process<T> extends Promise<T> {
+    abort: () => void;
+}
+export declare const useProcess: (handle: (abort: () => void) => unknown, config?: ProcessConfig) => Process<void>;
+export declare const useParallel: (threads: object | Function[]) => Promise<unknown[] | Record<any, unknown>>;
 export declare const useScrollLock: () => Signal.Signal<boolean, boolean>;
 export declare const useLocalStorage: <T extends unknown>(key: string, { defaultValue }?: {
     defaultValue?: T;

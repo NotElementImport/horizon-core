@@ -1,5 +1,6 @@
 export interface IStack {
     readonly count: number
+    fill(tasks: Function[]): void
     push(task: Function): void
     spread(): Promise<void>|void
     run(clearAfter?: boolean): Promise<void>
@@ -14,6 +15,9 @@ export function useStack($default = []): IStack {
         get count() { return tasks.length },
         push(task: Function) {
             tasks.push(task)
+        },
+        fill($tasks) {
+            tasks = $tasks
         },
         async spread(): Promise<void> {
             if(isRunning)

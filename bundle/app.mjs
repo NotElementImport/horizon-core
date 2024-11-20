@@ -259,10 +259,45 @@ async function render(app, comp, props) {
                 const props = { ...$props, hash };
                 const vDom = toDom('input', props);
                 if ($props['#model'] && isClient) {
+                    const type = ({ 'checkbox': 1, 'number': 2 })[$props.type ?? 'text'] ?? 0;
                     let model = $props['#model'];
-                    useStrongRef(model, raw => vDom.dom.value = raw);
-                    vDom.dom.addEventListener(($props['#lazy'] ?? false) ? 'input' : 'change', e => {
-                        model.value = e.target.value;
+                    useStrongRef(model, raw => {
+                        switch (type) {
+                            case 0:
+                                {
+                                    vDom.dom.value = raw;
+                                }
+                                break;
+                            case 1:
+                                {
+                                    vDom.dom.checked = raw;
+                                }
+                                break;
+                            case 2:
+                                {
+                                    vDom.dom.valueAsNumber = raw;
+                                }
+                                break;
+                        }
+                    });
+                    vDom.dom.addEventListener(($props['#lazy'] ?? false) ? 'change' : 'input', e => {
+                        switch (type) {
+                            case 0:
+                                {
+                                    model.value = e.target.value;
+                                }
+                                break;
+                            case 1:
+                                {
+                                    model.value = e.target.checked;
+                                }
+                                break;
+                            case 2:
+                                {
+                                    model.value = e.target.valueAsNumber;
+                                }
+                                break;
+                        }
                     });
                 }
                 const parent = app.leadComposable;
