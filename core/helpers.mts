@@ -22,17 +22,34 @@ export const useStylePrettify = (style: Record<string, any> | string) => {
 }
 
 export const toDelay = (signature: string, from: string|number|Date|undefined = undefined) => {
-    from = (from ?? new Date())
+    let dateFrom: Date = (from ?? new Date()) as Date
 
     if(from && !(from instanceof Date))
-        from = new Date(from);
+        dateFrom = new Date(from);
 
     const parsedSignature = Date.parse(signature)
 
     if(!Number.isNaN(parsedSignature))
-        return parsedSignature - (from as Date).getTime()
+        return parsedSignature - dateFrom.getTime()
 
     const dateSignature = new Date()
+    
+    if(signature.includes(':')) {
+        dateSignature.setFullYear(dateFrom.getFullYear())
+        dateSignature.setMonth(dateFrom.getMonth())
+        dateSignature.setDate(dateFrom.getDate())
+
+        const [ hour, minute, seconds ] = signature.split(':')
+        dateSignature.setHours(+(hour ?? 1) + 1, +(minute ?? 0), +(seconds ?? 0))
+        let result = dateSignature.getTime() - dateFrom.getTime()
+        
+        if(result <= 0) {
+            dateSignature.setDate(dateSignature.getDate() + 1)
+            result = dateSignature.getTime() - dateFrom.getTime()
+        }
+
+        return result
+    }
 
     for (let timeSignature of signature.split('+')) {
         timeSignature = timeSignature.trim()
@@ -46,5 +63,5 @@ export const toDelay = (signature: string, from: string|number|Date|undefined = 
             dateSignature.setHours(dateSignature.getHours() + +value)
     }
 
-    return (dateSignature).getTime() - (from as Date).getTime()
+    return dateSignature.getTime() - dateFrom.getTime()
 }

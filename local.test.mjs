@@ -1,16 +1,13 @@
-import { useParallel, useProcess } from './bundle/composables.mjs'
+import { useSignal, watch } from './bundle/stateble.mjs'
+import { useSubscribe } from './bundle/composables.mjs'
 
-let count1 = 0, count2 = 0
+const subs = useSubscribe()
 
-await useParallel([
-    () => useProcess(abort => {
-        console.log('Task 1')
-        count1 += 1
-        if(count1 > 10) abort()
-    }, { period: '2 sec' }),
-    () => useProcess(abort => {
-        console.log('Task 2')
-        count2 += 1
-        if(count2 > 10) abort()
-    }, { period: '1 sec' })
-])
+const unsub = subs.on(v => console.log(`first ${v}`))
+
+subs.emit('Test')
+
+unsub()
+subs.on(v => console.log(`second ${v}`))
+
+subs.emit('Test')

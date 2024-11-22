@@ -16,13 +16,26 @@ export const useStylePrettify = (style) => {
         .reduce((acc, [key, value]) => acc + `${key.replace('webkit', '-webkit').split(/(?=[A-Z])/).join('-').toLowerCase()}: ${value};`, '');
 };
 export const toDelay = (signature, from = undefined) => {
-    from = (from ?? new Date());
+    let dateFrom = (from ?? new Date());
     if (from && !(from instanceof Date))
-        from = new Date(from);
+        dateFrom = new Date(from);
     const parsedSignature = Date.parse(signature);
     if (!Number.isNaN(parsedSignature))
-        return parsedSignature - from.getTime();
+        return parsedSignature - dateFrom.getTime();
     const dateSignature = new Date();
+    if (signature.includes(':')) {
+        dateSignature.setFullYear(dateFrom.getFullYear());
+        dateSignature.setMonth(dateFrom.getMonth());
+        dateSignature.setDate(dateFrom.getDate());
+        const [hour, minute, seconds] = signature.split(':');
+        dateSignature.setHours(+(hour ?? 1) + 1, +(minute ?? 0), +(seconds ?? 0));
+        let result = dateSignature.getTime() - dateFrom.getTime();
+        if (result <= 0) {
+            dateSignature.setDate(dateSignature.getDate() + 1);
+            result = dateSignature.getTime() - dateFrom.getTime();
+        }
+        return result;
+    }
     for (let timeSignature of signature.split('+')) {
         timeSignature = timeSignature.trim();
         const [value, timeType] = timeSignature.split(' ');
@@ -33,5 +46,5 @@ export const toDelay = (signature, from = undefined) => {
         if (timeType.includes('hour'))
             dateSignature.setHours(dateSignature.getHours() + +value);
     }
-    return (dateSignature).getTime() - from.getTime();
+    return dateSignature.getTime() - dateFrom.getTime();
 };
