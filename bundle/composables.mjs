@@ -93,7 +93,6 @@ export const useNormalizer = (data, config = {}) => {
         return config.chart ? output.reverse() : output;
     };
     return useSignal([], {
-        bus: config.bus,
         onInit(signal) {
             watch(data, () => signal.value = process());
             signal.value = process();

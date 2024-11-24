@@ -68,7 +68,7 @@ const instanceRouter = {
     onPageEnd: (null) as (Function|null),
     onBeforeResolve: (() => {}) as ((to: HorizonRoute) => (void|boolean)),
     onBeforeCapture: (raw => raw) as ((to: string) => (string)),
-    currentRoute: useSignal<Route & { isNotFound: boolean, component?: Component.Component, capture?: HorizonRoute, url?: string }>({} as any, { bus: false }),
+    currentRoute: useSignal<Route & { isNotFound: boolean, component?: Component.Component, capture?: HorizonRoute, url?: string }>({} as any),
     routes: {} as Record<string, Route>,
     toNotFound(path: string) {
         this.currentRoute.value.url = path

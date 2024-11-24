@@ -1,4 +1,4 @@
-import { useId, useBusId } from "./helpers.mjs";
+import { useId } from "./helpers.mjs";
 import { currentApp } from "./app.mjs";
 const weakMap = new Map();
 if (!Object.asWeakRef) {
@@ -15,7 +15,6 @@ if (!Object.asWeakRef) {
 }
 let signalListener = [];
 let isSignalListener = false;
-export const busSignal = new Map();
 const sharedSignals = new Map();
 const sWatch = Symbol();
 const sValue = Symbol();
@@ -23,7 +22,6 @@ const sAsRaw = Symbol();
 const fakeNull = 'null';
 export const clearSignalHeap = () => {
     sharedSignals.clear();
-    busSignal.clear();
     weakMap.clear();
     signalListener = [];
 };
@@ -32,14 +30,6 @@ export const useSignal = (value, config = {
 }) => {
     if (config.key && sharedSignals.has(config.key))
         return sharedSignals.get(config.key);
-    const withBus = (config.bus ?? true) ? true : false;
-    const busKey = withBus
-        ? typeof config.bus == 'string' ? config.bus : `${useBusId()}`
-        : '';
-    if (withBus && currentApp.isHydrate) {
-        if (busSignal.has(busKey))
-            value = busSignal.get(busKey);
-    }
     let parentSetter = (v) => { };
     const signal = {
         [sWatch]: new Map(),
@@ -126,13 +116,10 @@ export const useSignal = (value, config = {
         sharedSignals.set(config.key, signal);
     if (config.devExpose && (currentApp?.isDev ?? false))
         globalThis[config.devExpose] = signal;
-    if (!isClient && withBus)
-        busSignal.set(busKey, signal);
     return signal;
 };
 export const useComputed = (handle) => {
     return useSignal(null, {
-        bus: false,
         onInit(signal) {
             isSignalListener = true;
             signalListener = [];

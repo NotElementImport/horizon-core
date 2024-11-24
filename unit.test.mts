@@ -1,12 +1,17 @@
-import { defineRepositoryFactory } from './core/repository.mjs'
-import { useComputed, useSignal } from './core/stateble.mjs'
+import { comp } from './bundle/component.mjs'
+import { useSyncSignal } from './bundle/shared.mjs'
+import { defineApp } from './bundle/app.mjs'
 
-const valueOne = useSignal('My name')
-const valueTwo = useSignal('my name')
-const comput   = useComputed((raw) => 
-    `${raw(valueOne)} is ${raw(valueTwo)}`
-)
+const test = useSyncSignal('Hello world!')
 
-console.log(comput.value)
-valueTwo.value = 'test'
-console.log(comput.value)
+const testApp = defineApp()
+
+const main = comp((_, { $, text, input }) => {
+    $('div', { }, () => {
+        input({ '#model': test, '#lazy': false })
+        text(test)
+    })
+})
+
+const html = await testApp.renderSSR(main, { withMeta: true })
+console.log(html)

@@ -4,6 +4,8 @@ export namespace Signal {
         asRaw: K
     }
 
+    interface Shared<T, K = T> extends Signal<T, K> {}
+
     type ProxySignal<T extends LikeProxy> = T
 
     interface IWeakRef<T> {
@@ -17,10 +19,13 @@ export namespace Signal {
     interface SignalConfig<T, K> {
         devExpose?: string
         key?: string
-        bus?: boolean|string
         asRaw?: (v: T) => K
         onSet?: (v: T) => void
         onInit?: (signal: Signal.Signal<T, K>) => void 
+    }
+
+    interface SharedConfig<T, K> extends SignalConfig<T, K> {
+        key: string
     }
 
     interface SignalProxySetup<T extends object|any[]> {
@@ -146,6 +151,25 @@ export namespace Component {
         '@input.stop'?: (ev:MouseEvent) => unknown 
     }
 
+    interface AtomKeypressEventConfig {
+        /**
+         * Event Listener `keypress`
+         */
+        '@press'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `keypress` with `enter` key
+         */
+        '@press.enter'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `keypress` with `shift` key
+         */
+        '@press.shift'?: (ev:MouseEvent) => unknown
+        /**
+         * Event Listener `keypress` with `ctrl` key
+         */
+        '@press.ctrl'?: (ev:MouseEvent) => unknown
+    }
+
     interface AtomBasicConfig {
         /** tag `style` attribute */
         style?: Props.OrSignal<CSS.Style|string>
@@ -161,6 +185,7 @@ export namespace Component {
         & AtomClickEventConfig
         & AtomHoverEventConfig
         & AtomLostEventConfig
+        & AtomKeypressEventConfig
 
     type AtomImgConfig = AtomConfig & {
         alt?: string
@@ -169,10 +194,30 @@ export namespace Component {
         loading?: 'lazy'|'eager'
     }
 
+    type Autocomplete = 'on'|'off'|'section-*'|'shipping'|'billing'|'home'|'work'|'mobile'|'fax'|'page'|
+        'tel-country-code'|'tel-national'|'tel-area-code'|'tel-local'|'tel'|'tel-extension'|'email'|'impp'|'name'|'honorific-prefix'|
+        'given-name'|'additional-name'|'family-name'|'honorific-suffix'|'nickname'|'username'|'new-password'|'current-password'|'one-time-code'|
+        'organization-title'|'organization'|'street-address'|'country'|'country-name'|'postal-code'|'cc-name'|'cc-given-name'|'cc-additional-name'|
+        'cc-family-name'|'cc-number'|'cc-exp'|'cc-exp-month'|'cc-exp-year'|'cc-csc'|'cc-type'|'transaction-currency'|'transaction-amount'|'language'|
+        'bday'|'bday-day'|'bday-month'|'bday-year'|'sex'|'url'|'photo'
+
     type AtomInputConfig = AtomConfig & AtomChangeEventConfig & AtomInputEventConfig & {
-        '#model': Signal.Signal<any>
+        '#model'?: Signal.Signal<any>
         '#lazy'?: boolean
-        type: 'checkbox'|'text'|'number'|'password'|'date'|'datetime-local'|'search'|'tel'|'time'|'url'|'week'|'month'|'color'|'file'|'radio'|'range'
+        type?: 'checkbox'|'text'|'number'|'password'|'date'|'datetime-local'|'search'|'tel'|'time'|'url'|'week'|'month'|'color'|'file'|'radio'|'range'
+        maxlength?: Props.OrSignal<number|string>
+        minlength?: Props.OrSignal<number|string>
+        max?: Props.OrSignal<number|string>
+        min?: Props.OrSignal<number|string>
+        step?: Props.OrSignal<number|string>
+        pattern?: Props.OrSignal<number|string>
+        placeholder?: Props.OrSignal<number|string>
+        readonly?: Props.OrSignal<boolean>
+        required?: Props.OrSignal<boolean>
+        disabled?: Props.OrSignal<boolean>
+        size?: Props.OrSignal<number|string>
+        autocomplete?: Props.OrSignal<Autocomplete>
+        autocomplete?: Props.OrSignal<string>
     }
 
     interface AtomList<S extends Record<string, any>> {

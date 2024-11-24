@@ -1,7 +1,7 @@
 import { Component, Primitive, Signal } from "../type"
 import { useStylePrettify } from "./helpers.mjs"
 import { IStack, useStack } from "./stack.mjs"
-import { tryGetRaw, useStrongRef, watch, clearSignalHeap, busSignal } from "./stateble.mjs"
+import { tryGetRaw, useStrongRef, watch, clearSignalHeap } from "./stateble.mjs"
 
 export interface IHorizonApp {
     readonly composable: Primitive.ComponentNode<null>
@@ -160,11 +160,11 @@ export function defineApp(conifg: {
             
             if(config.withMeta ?? false) {
                 ssrMeta += '<script id="ssr-meta-object" type="application/json">'
-                const ssrMetaObject = { bus: {} as any }
-                for (const [key, signal] of busSignal.entries()) {
-                    ssrMetaObject.bus[key] = signal.value
-                }
-                ssrMeta += JSON.stringify(ssrMetaObject)
+                // const ssrMetaObject = { bus: {} as any }
+                // for (const [key, signal] of busSignal.entries()) {
+                //     ssrMetaObject.bus[key] = signal.value
+                // }
+                // ssrMeta += JSON.stringify(ssrMetaObject)
                 ssrMeta += '</script>'
             }
 
@@ -464,7 +464,7 @@ function toDomString(comp: Primitive.ComponentNode<any>) {
         result += `<${comp.type}`
 
         for (const [name, value] of Object.entries(comp.props)) {
-            if(name == 'html' || name[0] == '@' || !value)
+            if(name == 'html' || name[0] == '@' || name[0] == '#' || !value)
                 continue
             else if(name == 'style')
                 result += ` ${name}="${useStylePrettify(tryGetRaw(value))}"`
@@ -516,6 +516,24 @@ function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
                         mainHandle(ev)
                     }
                 }break
+                case 'enter': {
+                    handle = (ev: KeyboardEvent) => {
+                        if(ev.key == 'Enter')
+                            mainHandle(ev)
+                    }
+                }break
+                case 'shift': {
+                    handle = (ev: KeyboardEvent) => {
+                        if(ev.shiftKey)
+                            mainHandle(ev)
+                    }
+                }break
+                case 'ctrl': {
+                    handle = (ev: KeyboardEvent) => {
+                        if(ev.ctrlKey)
+                            mainHandle(ev)
+                    }
+                }break
             }
 
             name = actualName
@@ -539,6 +557,9 @@ function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
             } break
             case 'input': {
                 dom.addEventListener('input', handle as any)
+            } break
+            case 'press': {
+                dom.addEventListener('keypress', handle as any)
             } break
         }
     }
@@ -574,6 +595,13 @@ function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
             else if(key == 'class')
                 useStrongRef(value, (v) => {
                     dom.setAttribute('class', Array.isArray(v) ? v.join(' ') : v) 
+                }, true)
+            else if (key == 'readonly' || key == 'disabled')
+                useStrongRef(value, (v) => {
+                    if(v)
+                        dom.setAttribute(key, '');
+                    else
+                        dom.removeAttribute(key);
                 }, true)
             else
                 useStrongRef(value, (v, unwatch) => {

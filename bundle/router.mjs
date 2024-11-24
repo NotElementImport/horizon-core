@@ -10,7 +10,7 @@ const instanceRouter = {
     onPageEnd: (null),
     onBeforeResolve: (() => { }),
     onBeforeCapture: (raw => raw),
-    currentRoute: useSignal({}, { bus: false }),
+    currentRoute: useSignal({}),
     routes: {},
     toNotFound(path) {
         this.currentRoute.value.url = path;

@@ -100,7 +100,7 @@ export const useParallel = async (threads: object|Function[]) => {
 
 export const useNormalizer = (
     data: Props.OrSignal<number[]>,
-    config: { chart?: boolean, bus?: string|boolean } = {}
+    config: { chart?: boolean } = {}
 ) => {
     const process = () => {
         let rawData = tryGetRaw<number[]>(data)
@@ -138,7 +138,6 @@ export const useNormalizer = (
     }
 
     return useSignal<{ value: number, raw: number }[], number[]>([], {
-        bus: config.bus,
         onInit(signal) {
             watch(data, () => signal.value = process())
             signal.value = process()

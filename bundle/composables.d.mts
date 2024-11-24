@@ -17,7 +17,6 @@ export declare const useProcess: (handle: (abort: () => void) => unknown, config
 export declare const useParallel: (threads: object | Function[]) => Promise<unknown[] | Record<any, unknown>>;
 export declare const useNormalizer: (data: Props.OrSignal<number[]>, config?: {
     chart?: boolean;
-    bus?: string | boolean;
 }) => Signal.Signal<{
     value: number;
     raw: number;

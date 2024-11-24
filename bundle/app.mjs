@@ -1,6 +1,6 @@
 import { useStylePrettify } from "./helpers.mjs";
 import { useStack } from "./stack.mjs";
-import { tryGetRaw, useStrongRef, watch, clearSignalHeap, busSignal } from "./stateble.mjs";
+import { tryGetRaw, useStrongRef, watch, clearSignalHeap } from "./stateble.mjs";
 export const isClient = typeof document !== 'undefined';
 const arrayInsert = (array, index, value) => {
     return [...array.slice(0, index), value, ...array.slice(index, array.length)];
@@ -93,11 +93,6 @@ export function defineApp(conifg = {}) {
             let ssrMeta = '';
             if (config.withMeta ?? false) {
                 ssrMeta += '<script id="ssr-meta-object" type="application/json">';
-                const ssrMetaObject = { bus: {} };
-                for (const [key, signal] of busSignal.entries()) {
-                    ssrMetaObject.bus[key] = signal.value;
-                }
-                ssrMeta += JSON.stringify(ssrMetaObject);
                 ssrMeta += '</script>';
             }
             const response = ssrMeta + toDomString(component.composable);
@@ -374,7 +369,7 @@ function toDomString(comp) {
             return comp.childs.forEach(e => layer(e));
         result += `<${comp.type}`;
         for (const [name, value] of Object.entries(comp.props)) {
-            if (name == 'html' || name[0] == '@' || !value)
+            if (name == 'html' || name[0] == '@' || name[0] == '#' || !value)
                 continue;
             else if (name == 'style')
                 result += ` ${name}="${useStylePrettify(tryGetRaw(value))}"`;
@@ -421,6 +416,30 @@ function toDom(type, props) {
                         };
                     }
                     break;
+                case 'enter':
+                    {
+                        handle = (ev) => {
+                            if (ev.key == 'Enter')
+                                mainHandle(ev);
+                        };
+                    }
+                    break;
+                case 'shift':
+                    {
+                        handle = (ev) => {
+                            if (ev.shiftKey)
+                                mainHandle(ev);
+                        };
+                    }
+                    break;
+                case 'ctrl':
+                    {
+                        handle = (ev) => {
+                            if (ev.ctrlKey)
+                                mainHandle(ev);
+                        };
+                    }
+                    break;
             }
             name = actualName;
         }
@@ -450,6 +469,11 @@ function toDom(type, props) {
             case 'input':
                 {
                     dom.addEventListener('input', handle);
+                }
+                break;
+            case 'press':
+                {
+                    dom.addEventListener('keypress', handle);
                 }
                 break;
         }
@@ -482,6 +506,13 @@ function toDom(type, props) {
             else if (key == 'class')
                 useStrongRef(value, (v) => {
                     dom.setAttribute('class', Array.isArray(v) ? v.join(' ') : v);
+                }, true);
+            else if (key == 'readonly' || key == 'disabled')
+                useStrongRef(value, (v) => {
+                    if (v)
+                        dom.setAttribute(key, '');
+                    else
+                        dom.removeAttribute(key);
                 }, true);
             else
                 useStrongRef(value, (v, unwatch) => {
