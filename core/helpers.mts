@@ -1,3 +1,6 @@
+import { Fetching, Primitive } from "../type"
+import { tryGetRaw } from "./stateble.mjs"
+
 const charTable = '0123456789qwertyuiopasdfghjklzxcvbnm#@$%&*'
 
 export const useId = (len = 10) => {
@@ -19,6 +22,26 @@ export const useStylePrettify = (style: Record<string, any> | string) => {
         .reduce((acc, [key, value]) =>
             acc + `${key.replace('webkit', '-webkit').split(/(?=[A-Z])/).join('-').toLowerCase()}: ${value};` 
         , '');
+}
+
+export const toURLString = (url: Fetching.URL): string => {
+    if(typeof url == 'string') return url
+    else if(url instanceof URL) return url.toString()
+
+    let final = url.path
+
+    if(url.pathParams) Object.entries(url.pathParams)
+        .map(([key, value]) => final = final.replace(`{${key}}`, tryGetRaw(value)))
+
+    // @ts-ignore
+    let query = (url.query) 
+        ? `?${(new URLSearchParams(
+            Object.fromEntries(Object.entries(url.query)
+                .map(([key, value]) => [key, tryGetRaw(value)]))
+        )).toString()}` 
+        : ''
+
+    return `${final}${query}`
 }
 
 export const toDelay = (signature: string, from: string|number|Date|undefined = undefined) => {

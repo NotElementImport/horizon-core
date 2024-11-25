@@ -1,6 +1,7 @@
 export namespace Signal {
     interface Signal<T, K = T> {
         value: T
+        unsafe: T
         asRaw: K
     }
 
@@ -37,6 +38,8 @@ export namespace Signal {
 
 export namespace Props {
     type OrSignal<T extends unknown> = T | Signal.Signal<T, any>
+    type CSS = Props.OrSignal<string|CSS.Style>
+    type CSS = Props.OrSignal<string|{}>
 }
 
 export namespace Primitive {
@@ -49,6 +52,39 @@ export namespace Primitive {
         props: Record<string|symbol, any>
         inline: boolean
         childs: ComponentNode<any>[]
+    }
+}
+
+export namespace Fetching {
+    type URL = string|{path: string, query?: Record<string, unknown>, pathParams?: Record<string, unknown>}|globalThis.URL
+
+    interface RequestInit<T = unknown> extends globalThis.RequestInit {
+        method?: 'GET'|'POST'|'PUT'|'DELETE'|'PATCH'|'OPTIONS'
+        type?: 'json'|'text'|'arrayBuffer'|'blob'
+        immediate?: boolean
+        defaultValue?: T
+        cacheKey?: string
+        cacheControl?: HorizonFetchCacheControl
+    }
+
+    interface HorizonFetch<T = unknown> {
+        rawData: Promise<T>
+        response: Signal.Signal<T|null>
+        status: Signal.Signal<number>
+        error: Signal.Signal<boolean>
+        fetching: Signal.Signal<boolean>
+        restart(): Promise<T>
+    }
+
+    interface CacheControlConfig {
+        on?: 'client'|'server'|'both'
+    }
+
+    interface HorizonFetchCacheControl {
+        write(key: string, data: unknown): void
+        read(key: string): unknown|undefined
+        forget(key: string): boolean
+        forgetAll(startsWith?: string): void
     }
 }
 
@@ -221,6 +257,7 @@ export namespace Component {
     }
 
     interface AtomList<S extends Record<string, any>> {
+        inject(handle: () => unknown): void
         onUnmount(handle: () => void): void
         $(type: keyof HTMLElementTagNameMap, props?: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
         img(src: Props.OrSignal<string>, props?: AtomImgConfig): AtomResponse
@@ -423,9 +460,4 @@ export namespace CSS {
         borderRadius: AnyType|SizeType
         borderRadius: string
     }
-}
-
-const test: CSS.Style = {
-    marginTop: '1em',
-    backgroundColor: ''
 }

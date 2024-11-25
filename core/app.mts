@@ -145,7 +145,7 @@ export function defineApp(conifg: {
             const to = parent ? parent.childs : currentComposable.childs
 
             if(index + 1 >= to.length)
-                return to.push(composable)
+                return (parent ? parent.childs : currentComposable.childs).push(composable)
 
             if(parent)
                 parent.childs = arrayInsert(parent.childs, index + 1, composable)
@@ -215,8 +215,11 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
     if(!props)
         app.pipe(comp.composable)
 
-    await app.lead(comp.composable, () => {
+    await app.lead(comp.composable, async () => {
         const $nodes = {
+            inject(handle: () => unknown) {
+                app.stack.while(handle)
+            },
             onUnmount(handle: () => unknown) {
                 const parent = app.leadComposable
                 // @ts-ignore
@@ -443,12 +446,11 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
             
         }
 
-        comp.slot(props as any, $nodes as any)
+        await comp.slot(props as any, $nodes as any)
     })
 
     const stack = app.stack
-    await stack.run()
-    stack.clear()
+    await stack.run(true)
     app.stack = oldStack
     if(!props)
         app.hydCounter = 0

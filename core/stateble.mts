@@ -45,6 +45,7 @@ export const useSignal = <T extends unknown, K = T>(
         return sharedSignals.get(config.key) as any
 
     let parentSetter = (v: T) => {}
+    let safeMode     = true
 
     const signal = {
         [sWatch]: new Map<string, Function>(),
@@ -57,12 +58,28 @@ export const useSignal = <T extends unknown, K = T>(
                 : value
         },
         get asRaw() {
+            safeMode = true
             return signal[sAsRaw]
         },
         get _rawValue() {
+            safeMode = false
             return value
         },
+        get unsafe() {
+            safeMode = false
+            return (value ?? null) != null 
+                // @ts-ignore
+                ? value.asWeakRef({
+                    value: () => value,
+                    set: (v: T) => signal.value = v,
+                    path: '$',
+                    pathIndex: 0,
+                    signal
+                }) 
+                : null
+        },
         get value() {
+            safeMode = true
             // @ts-ignore
             const rawValue = (value ?? fakeNull).asWeakRef({
                 value: () => value,
@@ -108,18 +125,21 @@ export const useSignal = <T extends unknown, K = T>(
                 if(p == 'toString')
                     return () => JSON.stringify(raw)
                 if(p in target) {
-                    const rawValue = (target[p] ?? 'null').asWeakRef({
-                        value: () => target[p],
-                        set: (v: T) => proxy[p] = v,
-                        path: p,
-                        pathIndex: path.length,
-                        signal
-                    })
+                    const rawValue = (target[p] ?? (safeMode ? 'null' : null))
+
                     if(isSignalListener)
                         signalListener.push(rawValue)
-                    return rawValue
+                    return rawValue != null 
+                        ? rawValue.asWeakRef({
+                            value: () => target[p],
+                            set: (v: T) => proxy[p] = v,
+                            path: p,
+                            pathIndex: path.length,
+                            signal
+                        })
+                        : rawValue
                 }
-                return null
+                return (safeMode ? 'null' : undefined)
             },
             set(target, p, newValue, receiver) {
                 const $path = Array.isArray(target) && p == 'length' ? path : [...path, p];
@@ -274,6 +294,9 @@ export const useStrongRef = <T extends unknown, K = T>(value: T|Signal.Signal<T,
 }
 
 export const tryGetRaw =  <T extends unknown, K = T>(value: T|Signal.Signal<T, K>): K => {
+    if(typeof value == 'function')
+        value = value()
+    
     if(isSignal(value)) {
         // @ts-ignore
         return value[sAsRaw]

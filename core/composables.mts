@@ -149,9 +149,9 @@ export const useNormalizer = (
 }
 
 interface Subscribe<T> {
-    on(handle: (v: T) => void, key?: string): (() => void)
+    on(handle: (v: T) => void, key?: string): (() => boolean)
     off(key: string): boolean
-    emit(v: T): void
+    broadcast(v: T): void
     clear(): void
 }
 
@@ -164,9 +164,57 @@ export const useSubscribe = <T extends unknown>() => {
             return () => subs.delete(id)
         },
         off(key) { return subs.delete(key) },
-        emit(v) { subs.forEach(callback => callback(v)) },
+        broadcast(v) { subs.forEach(callback => callback(v)) },
         clear() { subs.clear() }
     } as Subscribe<T>
+}
+
+interface EventMap<T extends Record<PropertyKey, unknown>> {
+    on<K extends keyof T>(eventKey: K, handle: (v: T[K]) => void, key?: string): (() => boolean)
+    off(eventKey: keyof T, key: string): boolean
+    broadcast<K extends keyof T>(eventKey: K, v: T[K]): void
+    clear(eventKey?: keyof T): void
+}
+
+export const useEventMap = <T extends Record<PropertyKey, unknown>>() => {
+    const events = new Map<keyof T, Map<PropertyKey, Function>>()
+
+    return {
+        on(eventKey, handle, key) {
+            let event: Map<PropertyKey, Function>|null = events.get(eventKey) ?? null
+
+            if(event == null) {
+                event = new Map<PropertyKey, Function>()
+                events.set(eventKey, event)
+            }
+
+            key = key ?? useId()
+            event.set(key, handle)
+
+            return () => event.delete(key)
+        },
+        off(eventKey, key) {
+            const event = events.get(eventKey) ?? null
+
+            if(event == null) return false
+
+            return event.delete(key)
+        },
+        broadcast(eventKey, v) {
+            const event = events.get(eventKey) ?? null
+
+            if(event == null) return
+
+            event.forEach(callback => {
+                callback(v)
+            })
+        },
+        clear(eventKey) {
+            if(!eventKey) return (events.clear(), void 0)
+            const event = events.get(eventKey) ?? null
+            if(event != null) event.clear()
+        }
+    } as EventMap<T>
 }
 
 export const useScrollLock = () => {

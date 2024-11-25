@@ -1,12 +1,14 @@
 export interface IStack {
     readonly count: number
     fill(tasks: Function[]): void
+    while(task: Function): void
     push(task: Function): void
     spread(): Promise<void>|void
     run(clearAfter?: boolean): Promise<void>
     clear(): void
 }
 
+const symWhileTask = Symbol()
 export function useStack($default = []): IStack {
     let tasks: Function[] = $default
     let isRunning: boolean = false
@@ -15,6 +17,16 @@ export function useStack($default = []): IStack {
         get count() { return tasks.length },
         push(task: Function) {
             tasks.push(task)
+        },
+        while(task: Function) {
+            tasks.push(() => {
+                const whilePromise = new Promise<void>(async (resovle) => {
+                    await task()
+                    resovle()
+                })
+                Object.defineProperty(whilePromise, symWhileTask, { value: true })
+                return whilePromise
+            })
         },
         fill($tasks) {
             tasks = $tasks
@@ -40,12 +52,48 @@ export function useStack($default = []): IStack {
             })
         },
         async run(clearAfter = false) {
+            let listWhile: Promise<void>[] = [];
+
             if(isRunning)
                 return
+            
             isRunning = true
-            for (const task of tasks) {
-                await task()
+
+            let i = 0
+            while(i != tasks.length) {
+                const task = tasks[i]
+
+                const response = task()
+
+                // @ts-ignore
+                if(response && response instanceof Promise && response[symWhileTask])
+                    listWhile.push(response)
+                else
+                    await response
+
+                if(i == tasks.length - 1) {
+                    await (new Promise<void>((resolve) => {
+                        if(listWhile.length == 0) return resolve()
+
+                        let activeWhile: number = 0
+                        const toResolve = () => {
+                            activeWhile -= 1
+                            if(activeWhile == 0) resolve()
+                        }
+
+                        for (const promise of listWhile) {
+                            if(!promise) continue
+                            activeWhile ++
+                            promise.then(e => toResolve())
+                        }
+
+                        listWhile = []
+                    }))
+                }
+
+                i++
             }
+
             isRunning = false
 
             if(clearAfter) this.clear()
