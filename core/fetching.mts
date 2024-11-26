@@ -1,6 +1,6 @@
 import { Fetching } from "../type";
 import { isClient } from "./app.mjs";
-import { toURLString } from "./helpers.mjs";
+import { toURLMeta, toURLString } from "./helpers.mjs";
 import { tryGetRaw, useSignal } from "./stateble.mjs";
 
 export const useFetch = <T extends unknown>(
@@ -45,7 +45,7 @@ export const useFetch = <T extends unknown>(
                     options.cacheControl.write(tryGetRaw(options.cacheKey), e)
                 }
 
-                return e
+                return e as T
             })
         return rawData
     }
@@ -75,7 +75,6 @@ export const useCacheControl = (config: Fetching.CacheControlConfig = {}) => {
         else if(config.on == 'server')
             valid = !isClient
     }
-        
 
     return {
         // @ts-ignore
@@ -98,4 +97,8 @@ export const useCacheControl = (config: Fetching.CacheControlConfig = {}) => {
             })
         },
     } as Fetching.HorizonFetchCacheControl
+}
+
+export const useRecord = (url: Fetching.URL) => {
+    const urlMeta = toURLMeta(url)
 }

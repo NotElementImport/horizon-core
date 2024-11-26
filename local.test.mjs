@@ -1,42 +1,30 @@
-import { useCacheControl, useFetch } from './bundle/fetching.mjs'
-
-import { useComputed, useSignal, useStrongRef } from './bundle/stateble.mjs'
+import { isSignal, useComputed, useSignal, useStrongRef, watch } from './bundle/stateble.mjs'
 import { comp } from './bundle/component.mjs'
 import { defineApp } from './bundle/app.mjs'
+import { useColorSheme, useDocumentBody, useDocumentHtml, useGetDOM, useLocalStorage, useNormalizer } from './bundle/composables.mjs'
 
 const testApp = defineApp()
 
-const products = comp(async (_, { $, text, inject, dyn }) => {
-    const { response: productsResponse, restart: getProducts, fetching } = useFetch({ path: 'https://dummyjson.com/products', query: { limit: 15 } }, { type: 'json', immediate: false, defaultValue: {} })
-    const countOfChars = useSignal(0)
-
-    inject(() => getProducts())
-
-    // Products
-    $('div', { 'aria-label': 'Products' }, () => {
-        dyn([fetching], () => {
-            if(fetching.value)
-                return text('Loading')
-
-            const { products = [], total = 0 } = productsResponse.value
-
-            for (const product of products) {
-                $('div', { }, () => {
-                    text(`Product ${product.title}`)
-               })
-            }
-
-            inject(async () => countOfChars.value = products.reduce((p, c) => p + c.description.length, 0))
-
-            text(`Total: ${total}`)
-            text(useComputed(raw => `Chars: ${raw(countOfChars)}`))
-        })
+const article = comp(({ title = 'Unknow' }, { $, text }) => {
+    $('article', {  }, () => {
+        if(typeof title == 'function')
+            title()
+        else
+            text(title)
     })
 })
 
-const main = comp((_, { use }) => {
-    use(products)
+article.warning = () => {
+    show
+}
+
+const main = comp((_, { $, text, use }) => {
+    article.functing()
+
+    use(article, {
+        title: "data"
+    })
 })
 
-const html = await testApp.renderSSR(main, { })
+const html = await testApp.renderSSR(main, { withSecurity: true, unmountAtEnd: true })
 console.log(html)

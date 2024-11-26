@@ -44,6 +44,61 @@ export const toURLString = (url: Fetching.URL): string => {
     return `${final}${query}`
 }
 
+export const toURLMeta = (url: Fetching.URL) => {
+    const meta = {
+        origin: '',
+        path: '',
+        query: {},
+        pathParams: {} as Record<string, unknown>,
+        defaultPathParams: {} as Record<string, unknown>
+    }
+
+    const processPathParams = (path: string): string => {
+        if(path.includes('{')) {
+            for (const part of path.split('{').slice(1)) {
+                const [param] = part.split('}', 2)
+                const [key, value = ''] = param.split(':')
+    
+                if(key[0] == '$') {
+                    // @ts-ignore
+                    path = path.replace(`{${key}}`, process.env[key.slice(1)])
+                    continue;
+                }
+    
+                meta.pathParams[key] = decodeURIComponent(value).trim()
+                meta.defaultPathParams[key] = decodeURIComponent(value).trim()
+    
+                if(value != '')
+                    path = path.replace(`{${param}}`, `{${key}}`)
+            }
+        }
+        return path
+    }
+
+    if(typeof url == 'object' && 'path' in url) {
+        url.path = processPathParams(url.path)
+        const globalThisUrl = new URL(url.path[0] == '/' ? `http://localhost${url.path}` : url.path)
+        meta.origin = globalThisUrl.origin
+        // @ts-ignore
+        meta.path = globalThisUrl.pathname.replaceAll('%7D', '}').replaceAll('%7B', '{')
+        meta.query = url.query ?? {}
+        meta.pathParams = { ...meta.pathParams, ...(url.pathParams ?? {}) }
+    }
+    else if(typeof url == 'string' || url instanceof URL) {
+        if(typeof url == 'string') {
+            url = processPathParams(url)
+            url = new URL(url[0] == '/' ? `http://localhost${url}` : url)
+        }
+
+        meta.origin = url.origin
+        // @ts-ignore
+        meta.path = url.pathname.replaceAll('%7D', '}').replaceAll('%7B', '{')
+        meta.query = Object.fromEntries(url.searchParams.entries()) ?? {}
+    }
+
+    return meta
+}
+
 export const toDelay = (signature: string, from: string|number|Date|undefined = undefined) => {
     let dateFrom: Date = (from ?? new Date()) as Date
 
