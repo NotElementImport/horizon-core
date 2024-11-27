@@ -220,6 +220,14 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
             inject(handle: () => unknown) {
                 app.stack.while(handle)
             },
+            implement(item: any) {
+                if(typeof item == 'object' && 'composable' in item)
+                    $nodes.use(item)
+                else if(typeof item == 'function')
+                    item()
+                else
+                    $nodes.text(item)
+            },
             onUnmount(handle: () => unknown) {
                 const parent = app.leadComposable
                 // @ts-ignore
