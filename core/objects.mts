@@ -1,3 +1,4 @@
+import { useLocalStorage } from "./composables.mjs"
 import { useSignal } from "./stateble.mjs"
 
 const signletoneMap = new Map()
@@ -26,22 +27,44 @@ export function signal() {
     }
 }
 
-export function subscrible() {
+export function storage(config: { prefix?: string } = { }) {
     return function(_: any, ctx: ClassFieldDecoratorContext) {
-        const signal = useSignal(null)
-
         ctx.addInitializer(function() {
+            // @ts-ignore
+            const signal = useLocalStorage<string>(`${config.prefix ?? 'storage-'}${ctx.name as string}`, { defaultValue: this[ctx.name] })
             Object.defineProperty(this, ctx.name, { get: () => signal.value, set: (v) => signal.value = v })
         })
 
-        return (value: any) => {
-            signal.value = value
-            return value
-        }
+        return (value: any) => value
     }
 }
 
-export function init<T, A extends unknown[]>(item: { new(...args: A): T }, ...props: A): T {
+export function record() {
+    return function(target: any, ctx: ClassDecoratorContext) {
+        target[modifySym] = true
+        target[isSingletone] = true
+    }
+}
+
+export function methodGet() {
+    return function(target: Function, ctx: ClassMethodDecoratorContext) {
+        return (...args: any[]) => { return target(...args) }
+    }
+}
+
+export function methodPost() {
+
+}
+
+export function methodPut() {
+    
+}
+
+export function methodDelete() {
+    
+}
+
+export function define<T, A extends unknown[]>(item: { new(...args: A): T }, ...props: A): T {
     let instance: T
 
     // @ts-ignore

@@ -1,4 +1,3 @@
-import { isClient } from "./app.mjs";
 import { toURLMeta, toURLString } from "./helpers.mjs";
 import { tryGetRaw, useSignal } from "./stateble.mjs";
 export const useFetch = (url, options = {}) => {
@@ -49,38 +48,6 @@ export const useFetch = (url, options = {}) => {
         response,
         fetching,
         restart
-    };
-};
-const symLinkCacheControl = Symbol();
-export const useCacheControl = (config = {}) => {
-    const caches = new Map();
-    let valid = true;
-    if (config.on) {
-        if (config.on == 'client')
-            valid = isClient;
-        else if (config.on == 'server')
-            valid = !isClient;
-    }
-    return {
-        [symLinkCacheControl]: true,
-        write(key, data) {
-            if (valid)
-                caches.set(key, data);
-        },
-        read(key) {
-            return caches.get(key);
-        },
-        forget(key) {
-            return caches.delete(key);
-        },
-        forgetAll(startsWith) {
-            if (!startsWith)
-                return caches.clear();
-            caches.forEach((_, key) => {
-                if (key.startsWith(startsWith))
-                    caches.delete(key);
-            });
-        },
     };
 };
 export const useRecord = (url) => {

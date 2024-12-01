@@ -1,4 +1,4 @@
-import { Component, Signal } from "../type";
+import type { Component, Signal } from "../type.d.ts";
 interface HorizonRouterComponentProps {
 }
 interface HorizonRouterNotFoundProps {

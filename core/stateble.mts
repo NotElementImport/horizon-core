@@ -1,5 +1,5 @@
 import { useId } from "./helpers.mjs";
-import type { Primitive, Signal } from "../type";
+import type { Primitive, Signal } from "../type.d.ts";
 import { currentApp } from "./app.mjs";
 
 const weakMap = new Map<any, any>();

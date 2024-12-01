@@ -1,4 +1,4 @@
-import { Composable, CSS, Props, Signal } from "../type";
+import type { Composable, CSS, Props, Signal } from "../type.d.ts";
 type StyleSignal = CSS.Style;
 type StyleStringSignal = Signal.Signal<string, string>;
 export declare const useStyle: <T extends CSS.Style | string>(object: T) => T extends string ? StyleStringSignal : StyleSignal;

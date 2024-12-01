@@ -1,4 +1,4 @@
-import type { Primitive, Signal } from "../type";
+import type { Primitive, Signal } from "../type.d.ts";
 export declare const clearSignalHeap: () => void;
 export declare const useSignal: <T extends unknown, K = T>(value: T, config?: Signal.SignalConfig<T, K>) => Signal.Signal<T, K>;
 export declare const useComputed: <T extends unknown>(handle: (raw: (value: any) => any) => T) => Signal.Signal<T, T>;

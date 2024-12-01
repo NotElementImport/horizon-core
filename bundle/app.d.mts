@@ -1,4 +1,4 @@
-import { Component, Primitive } from "../type";
+import type { Component, Primitive } from "../type.d.ts";
 import { IStack } from "./stack.mjs";
 export interface IHorizonApp {
     readonly composable: Primitive.ComponentNode<null>;

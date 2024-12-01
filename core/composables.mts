@@ -1,4 +1,4 @@
-import { Composable, CSS, Props, Signal } from "../type"
+import type { Composable, CSS, Props, Signal } from "../type.d.ts"
 import { isClient } from "./app.mjs"
 import { toDelay, useId, useStylePrettify } from "./helpers.mjs"
 import { useStack } from "./stack.mjs"

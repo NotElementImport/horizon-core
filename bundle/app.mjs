@@ -1,4 +1,5 @@
 import { useStylePrettify } from "./helpers.mjs";
+import { createSharedJSON, executeSync } from "./shared.mjs";
 import { useStack } from "./stack.mjs";
 import { tryGetRaw, useStrongRef, watch, clearSignalHeap } from "./stateble.mjs";
 export const isClient = typeof document !== 'undefined';
@@ -92,8 +93,7 @@ export function defineApp(conifg = {}) {
             }
             let ssrMeta = '';
             if (config.withMeta ?? false) {
-                ssrMeta += '<script id="ssr-meta-object" type="application/json">';
-                ssrMeta += '</script>';
+                ssrMeta += `<script id="ssr-meta-object" type="application/json">${createSharedJSON()}</script>`;
             }
             const response = ssrMeta + toDomString(component.composable);
             if (config.withSecurity ?? true) {
@@ -114,9 +114,7 @@ export function defineApp(conifg = {}) {
             const ssrMeta = document.getElementById('ssr-meta-object');
             if (ssrMeta) {
                 const ssrMetaObject = JSON.parse(ssrMeta.innerHTML);
-                for (const [key, value] of Object.entries(ssrMetaObject.bus)) {
-                    busSignal.set(key, value);
-                }
+                executeSync(ssrMetaObject.data, ssrMetaObject.cacheControl);
             }
             await render($instance, component);
             isHydrate = false;

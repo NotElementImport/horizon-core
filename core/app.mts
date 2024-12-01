@@ -1,5 +1,6 @@
-import { Component, Primitive, Signal } from "../type"
+import type { Component, Primitive, Signal } from "../type.d.ts"
 import { useStylePrettify } from "./helpers.mjs"
+import { createSharedJSON, executeSync } from "./shared.mjs"
 import { IStack, useStack } from "./stack.mjs"
 import { tryGetRaw, useStrongRef, watch, clearSignalHeap } from "./stateble.mjs"
 
@@ -159,13 +160,7 @@ export function defineApp(conifg: {
             let ssrMeta = ''
             
             if(config.withMeta ?? false) {
-                ssrMeta += '<script id="ssr-meta-object" type="application/json">'
-                // const ssrMetaObject = { bus: {} as any }
-                // for (const [key, signal] of busSignal.entries()) {
-                //     ssrMetaObject.bus[key] = signal.value
-                // }
-                // ssrMeta += JSON.stringify(ssrMetaObject)
-                ssrMeta += '</script>'
+                ssrMeta += `<script id="ssr-meta-object" type="application/json">${createSharedJSON()}</script>`
             }
 
             const response = ssrMeta + toDomString(component.composable)
@@ -191,9 +186,7 @@ export function defineApp(conifg: {
             const ssrMeta = document.getElementById('ssr-meta-object')
             if(ssrMeta) {
                 const ssrMetaObject = JSON.parse(ssrMeta.innerHTML)
-                for (const [key, value] of Object.entries(ssrMetaObject.bus)) {
-                    busSignal.set(key, value as any)
-                }
+                executeSync(ssrMetaObject.data, ssrMetaObject.cacheControl)
             }
             await render($instance, component)
             isHydrate = false
@@ -354,14 +347,15 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
                 app.hydCounter += 1
                 return vDom
             },
-            input($props: any) {
+            input($props: Record<string, any>) {
                 const stack = app.stack
                 const hash  = app.hydMeta + `${app.hydCounter}inp`
 
                 const props = { ...$props, hash }
-                const vDom  = toDom('input', props)
+                const vDom  = toDom<HTMLInputElement>('input', props)
 
                 if($props['#model'] && isClient) {
+                    // @ts-ignore
                     const type = ({ 'checkbox': 1, 'number': 2 })[$props.type ?? 'text'] ?? 0
 
                     let model = $props['#model'];
@@ -375,8 +369,11 @@ async function render<T extends Record<string, any>>(app: IHorizonApp, comp: Com
 
                     vDom.dom.addEventListener(($props['#lazy'] ?? false) ? 'change' : 'input', e => {
                         switch(type) {
+                            // @ts-ignore
                             case 0: { model.value = e.target.value } break
+                            // @ts-ignore
                             case 1: { model.value = e.target.checked } break
+                            // @ts-ignore
                             case 2: { model.value = e.target.valueAsNumber } break
                         }
                     });
@@ -503,8 +500,8 @@ function toDomString(comp: Primitive.ComponentNode<any>) {
     return result
 }
 
-function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
-    let dom: HTMLElement = null as any
+function toDom<T extends HTMLElement>(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
+    let dom: T = null as any
 
     const eventExist: Record<string, boolean> = { }
 
@@ -586,7 +583,7 @@ function toDom(type: keyof HTMLElementTagNameMap, props: Record<string, any>) {
 
     if(isClient) {
         dom = document.querySelector(`[hash="${props.hash}"]`)
-            ?? document.createElement(type)
+            ?? document.createElement(type) as T
 
         for (const [key, value] of Object.entries(props)) {
             if(key[0] == '#') continue

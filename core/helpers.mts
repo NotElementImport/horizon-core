@@ -1,4 +1,4 @@
-import { Fetching, Primitive } from "../type"
+import type { Fetching, Primitive, URL } from "../type.d.ts"
 import { tryGetRaw } from "./stateble.mjs"
 
 const charTable = '0123456789qwertyuiopasdfghjklzxcvbnm#@$%&*'
@@ -34,14 +34,14 @@ export const toURLString = (url: Fetching.URL): string => {
         .map(([key, value]) => final = final.replace(`{${key}}`, tryGetRaw(value)))
 
     // @ts-ignore
-    let query = (url.query) 
+    let query = (Object.keys(url.query ?? {}).length) 
         ? `?${(new URLSearchParams(
-            Object.fromEntries(Object.entries(url.query)
+            Object.fromEntries(Object.entries(url.query ?? {})
                 .map(([key, value]) => [key, tryGetRaw(value)]))
         )).toString()}` 
         : ''
 
-    return `${final}${query}`
+    return `${url.origin ?? ''}${final}${query}`
 }
 
 export const toURLMeta = (url: Fetching.URL) => {
@@ -139,7 +139,41 @@ export const toDelay = (signature: string, from: string|number|Date|undefined = 
             dateSignature.setMinutes(dateSignature.getMinutes() + +value)
         if(timeType.includes('hour'))
             dateSignature.setHours(dateSignature.getHours() + +value)
+        if(timeType.includes('day'))
+            dateSignature.setDate(dateSignature.getDate() + +value)
+        if(timeType.includes('month'))
+            dateSignature.setMonth(dateSignature.getMonth() + +value)
+        if(timeType.includes('year'))
+            dateSignature.setFullYear(dateSignature.getFullYear() + +value)
     }
 
     return dateSignature.getTime() - dateFrom.getTime()
+}
+
+export const useURLCapture = (url: URL.URL): URL.ParsedURL => {
+    let hasOrigin = (typeof url == 'string' ? url : url.path)[0] != '/'
+    let path = typeof url == 'string' ? url : url.path;
+    let query = typeof url == 'string' ? undefined : url.query;
+
+    const parsedURL = new URL(path, !hasOrigin ? 'http://localhost' : undefined)
+
+    const captured = {
+        fullPath: parsedURL.href,
+        origin: hasOrigin ? parsedURL.origin : null,
+        path: parsedURL.pathname,
+        query: query ?? Object.fromEntries(parsedURL.searchParams.entries()),
+        port: +(parsedURL.port) || null,
+        params: {},
+        hash: parsedURL.hash
+    }
+
+    return captured
+}
+
+export const useRequestCapture = (url: URL.URL, headers: Record<string, any>) => {
+    const urlMeta = useURLCapture(url);
+
+    return {
+        url: urlMeta
+    }
 }

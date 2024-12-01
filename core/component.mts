@@ -1,4 +1,4 @@
-import { Component, Props } from "../type"
+import type { Component, Props } from "../type.d.ts"
 import { currentApp, useComposite } from "./app.mjs"
 
 export function comp<P extends object, S extends object>(
@@ -6,6 +6,10 @@ export function comp<P extends object, S extends object>(
 ): Component.Component<P, S> {
     const $composable = useComposite(null, {})
     return { slot, get composable() { return $composable } }
+}
+
+export const isComponent = (data: unknown) => {
+    return data && typeof data == 'object' && 'composable' in data ? true : false 
 }
 
 export function mod<P extends object, S extends object>(

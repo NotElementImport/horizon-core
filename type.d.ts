@@ -26,13 +26,55 @@ export namespace Signal {
     }
 
     interface SharedConfig<T, K> extends SignalConfig<T, K> {
-        key: string
+        onSync?: (staticValue: T) => void
+        onServerInit?: (signal: Signal.Signal<T, K>) => void
     }
 
     interface SignalProxySetup<T extends object|any[]> {
         get?(target: T, p: string|symbol): unknown
         set?(target: T, p: string|symbol, value: T): void
         has?(target: T, p: string|symbol): boolean
+    }
+}
+
+export namespace URL {
+    type URL = string|{ origin: string, path: string, query: Record<string, unknown> }
+
+    type ParsedURL = {
+        fullPath: string
+        origin: string|null
+        path: string
+        query: Record<string, unknown>
+        port: number|null,
+        params: Record<string, unknown>,
+        hash: string|null
+    }
+}
+
+export namespace Router {
+    type RegisteredRoute = {
+        readonly path: string[]
+        readonly middleware: Function[]
+        readonly component: Component.Component
+    }
+
+    interface RoutesMeta { 
+        middleware?: Function[] 
+        childs: Router.Routes 
+    }
+
+    type Routes = {
+        [path: string]: Component.Component | Router.RoutesMeta
+    }
+
+    interface HorizonRouter extends Component.Component {
+        defineRoutes(routes: Router.Routes): HorizonRouter
+        getRoutes(): Record<string, RegisteredRoute>
+        setNotFound(comp: Component.Component<{ url: string }>|null): HorizonRouter
+        on(event: 'end', handle: () => void): HorizonRouter
+        push(url: URL.URL): Promise<boolean>
+        pop(): void
+        readonly current: { path: string, query: Record<string, unknown>, params: Record<string, unknown>, hash: string|null }
     }
 }
 
@@ -56,7 +98,7 @@ export namespace Primitive {
 }
 
 export namespace Fetching {
-    type URL = string|{path: string, query?: Record<string, unknown>, pathParams?: Record<string, unknown>}|globalThis.URL
+    type URL = string|{origin?: string, path: string, query?: Record<string, unknown>, pathParams?: Record<string, unknown>}|globalThis.URL
 
     interface RequestInit<T = unknown> extends globalThis.RequestInit {
         method?: 'GET'|'POST'|'PUT'|'DELETE'|'PATCH'|'OPTIONS'
@@ -77,12 +119,13 @@ export namespace Fetching {
     }
 
     interface CacheControlConfig {
-        on?: 'client'|'server'|'both'
+        shared?: boolean
     }
 
     interface HorizonFetchCacheControl {
-        write(key: string, data: unknown): void
-        read(key: string): unknown|undefined
+        write<T extends unknown>(key: string, data: T, time?: number): T
+        read<T extends unknown>(key: string): T|undefined
+        tryRead<T extends unknown>(key: string, $default: (() => T)|T): T
         forget(key: string): boolean
         forgetAll(startsWith?: string): void
     }
@@ -259,11 +302,14 @@ export namespace Component {
     interface AtomList<S extends Record<string, any>> {
         inject(handle: () => unknown): void
         onUnmount(handle: () => void): void
-        $(type: keyof HTMLElementTagNameMap, props?: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
+
+        $(type: keyof HTMLElementTagNameMap, props?: Record<string, any> & AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
+        
         img(src: Props.OrSignal<string>, props?: AtomImgConfig): AtomResponse
         input(props?: AtomInputConfig): AtomResponse
-        div(props: AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
-        text(content: Props.OrSignal<unknown>, props?: AtomConfig): AtomResponse
+
+        div(props: Record<string, any> & AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse
+        text(content: Props.OrSignal<unknown>, props?: Record<string, any> & AtomConfig): AtomResponse
         
         use<T extends object, S extends object>(other: Component.Component<T, S>, props?: T, slot?: (args: S) => void): void
         slot(args: S): void

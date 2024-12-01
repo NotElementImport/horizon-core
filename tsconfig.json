@@ -6,7 +6,8 @@
     "./type.d.ts",
     "./*.mjs",
     "./types/*",
-    "./bundle/*"
+    "./bundle/*",
+    "./deno/*"
   ],
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig to read more about this file */

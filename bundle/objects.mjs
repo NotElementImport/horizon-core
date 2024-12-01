@@ -1,3 +1,4 @@
+import { useLocalStorage } from "./composables.mjs";
 import { useSignal } from "./stateble.mjs";
 const signletoneMap = new Map();
 const modifySym = Symbol();
@@ -20,19 +21,33 @@ export function signal() {
         };
     };
 }
-export function subscrible() {
+export function storage(config = {}) {
     return function (_, ctx) {
-        const signal = useSignal(null);
         ctx.addInitializer(function () {
+            const signal = useLocalStorage(`${config.prefix ?? 'storage-'}${ctx.name}`, { defaultValue: this[ctx.name] });
             Object.defineProperty(this, ctx.name, { get: () => signal.value, set: (v) => signal.value = v });
         });
-        return (value) => {
-            signal.value = value;
-            return value;
-        };
+        return (value) => value;
     };
 }
-export function init(item, ...props) {
+export function record() {
+    return function (target, ctx) {
+        target[modifySym] = true;
+        target[isSingletone] = true;
+    };
+}
+export function methodGet() {
+    return function (target, ctx) {
+        return (...args) => { return target(...args); };
+    };
+}
+export function methodPost() {
+}
+export function methodPut() {
+}
+export function methodDelete() {
+}
+export function define(item, ...props) {
     let instance;
     if (!item[modifySym])
         instance = new item(...props);

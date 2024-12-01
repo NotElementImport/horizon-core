@@ -1,10 +1,20 @@
-import { signal, init, singletone, subscrible } from './bundle/objects.mjs'
-import { watch } from './bundle/stateble.mjs'
+import { comp } from './core/component.mts'
+import Router from './core/router.mjs'
 
-@singletone()
-class User {
-    @signal()
-    id: number = -1
-}
+const main = comp((_, { }) => {
 
-const basketItem = init(User)
+})
+
+const checkAuth = () => true
+
+Router.defineRoutes({
+    '': {
+        childs: {
+            '': main,
+            ':id': main
+        },
+        middleware: [ checkAuth ],
+    } 
+})
+
+console.log(await Router.push('/10'))
