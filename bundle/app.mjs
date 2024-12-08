@@ -1,7 +1,7 @@
-import { useStylePrettify } from "./helpers.mjs";
+import { resetBusId, useStylePrettify } from "./helpers.mjs";
 import { createSharedJSON, executeSync } from "./shared.mjs";
 import { useStack } from "./stack.mjs";
-import { tryGetRaw, useStrongRef, watch, clearSignalHeap } from "./stateble.mjs";
+import { unSignal, useStrongRef, watch, clearSignalHeap } from "./stateble.mjs";
 export const isClient = typeof document !== 'undefined';
 const arrayInsert = (array, index, value) => {
     return [...array.slice(0, index), value, ...array.slice(index, array.length)];
@@ -39,6 +39,7 @@ export function defineApp(conifg = {}) {
             hydrateMeta = '$';
             currentComposable = $app;
             $app.dom = null;
+            resetBusId();
             clearSignalHeap();
         },
         get isHydrate() { return isHydrate; },
@@ -380,17 +381,19 @@ function toDomString(comp) {
             if (name == 'html' || name[0] == '@' || name[0] == '#' || !value)
                 continue;
             else if (name == 'style')
-                result += ` ${name}="${useStylePrettify(tryGetRaw(value))}"`;
-            else if (name == 'class')
-                result += ` ${name}="${Array.isArray(value) ? value.join(' ') : tryGetRaw(value)}"`;
+                result += ` ${name}="${useStylePrettify(unSignal(value))}"`;
+            else if (name == 'class') {
+                const unpacked = unSignal(value);
+                result += ` ${name}="${Array.isArray(unpacked) ? value.join(' ') : unpacked}"`;
+            }
             else
-                result += ` ${name}="${tryGetRaw(value)}"`;
+                result += ` ${name}="${unSignal(value)}"`;
         }
         result += `>`;
         if (comp.inline)
             return;
         if (comp.props.html)
-            result += tryGetRaw(comp.props.html);
+            result += unSignal(comp.props.html);
         else
             for (const composable of comp.childs) {
                 layer(composable);

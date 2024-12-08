@@ -1,4 +1,4 @@
-import { tryGetRaw } from "./stateble.mjs";
+import { unSignal } from "./stateble.mjs";
 const charTable = '0123456789qwertyuiopasdfghjklzxcvbnm#@$%&*';
 export const useId = (len = 10) => {
     let result = '';
@@ -9,6 +9,9 @@ export const useId = (len = 10) => {
 let busCounter = -1;
 export const useBusId = () => {
     return (busCounter++, busCounter);
+};
+export const resetBusId = () => {
+    busCounter = -1;
 };
 export const useStylePrettify = (style) => {
     if (typeof style == 'string')
@@ -21,13 +24,13 @@ export const toURLString = (url) => {
         return url;
     else if (url instanceof URL)
         return url.toString();
-    let final = url.path;
+    let final = `${url.origin ?? ''}${url.path}`;
     if (url.pathParams)
         Object.entries(url.pathParams)
-            .map(([key, value]) => final = final.replace(`{${key}}`, tryGetRaw(value)));
+            .map(([key, value]) => final = final.replace(`{${key}}`, unSignal(value)));
     let query = (Object.keys(url.query ?? {}).length)
         ? `?${(new URLSearchParams(Object.fromEntries(Object.entries(url.query ?? {})
-            .map(([key, value]) => [key, tryGetRaw(value)])))).toString()}`
+            .map(([key, value]) => [key, unSignal(value)])))).toString()}`
         : '';
     return `${url.origin ?? ''}${final}${query}`;
 };
@@ -118,14 +121,15 @@ export const useURLCapture = (url) => {
     let hasOrigin = (typeof url == 'string' ? url : url.path)[0] != '/';
     let path = typeof url == 'string' ? url : url.path;
     let query = typeof url == 'string' ? undefined : url.query;
-    const parsedURL = new URL(path, hasOrigin ? 'http://localhost' : undefined);
+    const parsedURL = new URL(path, !hasOrigin ? 'http://localhost' : undefined);
     const captured = {
-        fullPath: url,
+        fullPath: parsedURL.href,
         origin: hasOrigin ? parsedURL.origin : null,
         path: parsedURL.pathname,
         query: query ?? Object.fromEntries(parsedURL.searchParams.entries()),
         port: +(parsedURL.port) || null,
-        params: {}
+        params: {},
+        hash: parsedURL.hash
     };
     return captured;
 };

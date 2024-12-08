@@ -1,7 +1,7 @@
 import { isClient } from "./app.mjs";
 import { toDelay, useId, useStylePrettify } from "./helpers.mjs";
 import { useStack } from "./stack.mjs";
-import { tryGetRaw, useProxySignal, useSignal, watch } from "./stateble.mjs";
+import { unSignal, useProxySignal, useSignal, watch } from "./stateble.mjs";
 export const useStyle = (object) => {
     const signal = useSignal(object, { asRaw: (v) => useStylePrettify(v) });
     if (typeof signal.value == 'object')
@@ -64,7 +64,7 @@ export const useParallel = async (threads) => {
 };
 export const useNormalizer = (data, config = {}) => {
     const process = () => {
-        let rawData = tryGetRaw(data);
+        let rawData = unSignal(data);
         const output = [];
         let maxValue = -Infinity;
         let minValue = Infinity;

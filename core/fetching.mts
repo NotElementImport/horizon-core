@@ -1,68 +1,90 @@
 import type { Fetching } from "../type.d.ts";
-import { toURLMeta, toURLString } from "./helpers.mjs";
-import { tryGetRaw, useSignal } from "./stateble.mjs";
+import { toURLString } from "./helpers.mjs";
+import { useSyncSignal } from "./shared.mjs";
+import { unSignal, useSignal } from "./stateble.mjs";
 
-export const useFetch = <T extends unknown>(
+export const useFetch: Fetching.HorizonFetchMethod = <T extends unknown>(
     url: Fetching.URL, 
-    options: Fetching.RequestInit<T> = {} as Fetching.RequestInit<T>
-): Fetching.HorizonFetch<T> => {
-    const fetching = useSignal(false)
-    const error    = useSignal(false)
-    const status   = useSignal(200)
-    const response = useSignal<T|null>(options.defaultValue ?? null)
-    let   rawData: Promise<T>
+    options = {} as Fetching.RequestInit<T>
+) => {
+    const cacheControler = options.cacheControl
+    const cacheKey       = options.key
+    const cacheTimeout   = options.cacheTimeout
 
-    const restart = async () => {
-        if(options.cacheControl) {
-            if(!options.cacheKey) throw new Error('Cache key not sets useFetch()')
-            const cache = options.cacheControl.read(tryGetRaw(options.cacheKey)) as T
-            if(cache) {
-                response.value = cache
-                return cache
+    const response = cacheKey 
+        ? useSyncSignal<T, T>(options.defaultValue ?? null as T, { key: cacheKey }) 
+        : useSignal<T>(options.defaultValue ?? null as T)
+    const status   = useSignal(0)
+    const error    = useSignal(false)
+    const fetching = useSignal(false)
+
+    const startRequest = async () => {
+        fetching.value = true
+        const type = options.type ?? 'json'
+
+        if(cacheControler && cacheKey) {
+            const data = cacheControler.read<T>(unSignal(cacheKey))
+            if(data) {
+                response.value = data 
+                status.value = 0
+                fetching.value = false
+                error.value = false
+                return returnObject
             }
         }
 
-        fetching.value = true
-        response.value = options.defaultValue ?? null
-        rawData = fetch(toURLString(url), options)
+        await fetch(toURLString(url), options)
             .then(async e => {
-                error.value  = !e.ok
+                error.value = !e.ok
                 status.value = e.status
 
-                if(error.value) {
-                    return e.text()
+                if(type == 'text') {
+                    response.value = await e.text() as T
+                    fetching.value = false
+                    return response.value
                 }
 
-                return e[options.type ?? 'text']()
-            })
-            .then(e => {
-                fetching.value = false
-                response.value = e
-            
-                if(options.cacheControl && !error.value) {
-                    if(!options.cacheKey) throw new Error('Cache key not sets useFetch()')
-                    options.cacheControl.write(tryGetRaw(options.cacheKey), e)
-                }
+                try {
+                    response.value = await e[type]() as T                    
+                    fetching.value = false
 
-                return e as T
+                    if(cacheControler && cacheKey) {
+                        cacheControler.write(unSignal(cacheKey), response.value, cacheTimeout)
+                    }
+
+                    return response.value
+                }
+                catch(_) {
+                    console.error(_)
+                    error.value = true
+                    response.value = await e.text() as T
+                    fetching.value = false
+                    return response.value
+                }
             })
-        return rawData
+
+        return returnObject
     }
 
-    if(options.immediate ?? true)
-        restart()
-
-    return {
-        error,
-        status,
-        // @ts-ignore
-        rawData,
+    const returnObject = {
         response,
-        fetching,
-        restart
+        get status() { return status.value },
+        get fetching() { return fetching.value },
+        get error() { return error.value },
+        fetch: startRequest
     }
-}
 
-export const useRecord = (url: Fetching.URL) => {
-    const urlMeta = toURLMeta(url)
+    const promise: Fetching.PromiseHorizonFetch<T> = new Promise<any>(async resolve => {
+        resolve((options.immediate ?? true)
+            ? await startRequest()
+            : returnObject)
+    }) as Fetching.PromiseHorizonFetch<T>
+
+    Object.defineProperty(promise, 'response', { get: () => response })
+    Object.defineProperty(promise, 'status', { get: () => status.value })
+    Object.defineProperty(promise, 'error', { get: () => error.value })
+    Object.defineProperty(promise, 'fetching', { get: () => fetching.value })
+    Object.defineProperty(promise, 'fetch', { value: startRequest })
+
+    return promise
 }

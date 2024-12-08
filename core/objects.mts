@@ -39,31 +39,6 @@ export function storage(config: { prefix?: string } = { }) {
     }
 }
 
-export function record() {
-    return function(target: any, ctx: ClassDecoratorContext) {
-        target[modifySym] = true
-        target[isSingletone] = true
-    }
-}
-
-export function methodGet() {
-    return function(target: Function, ctx: ClassMethodDecoratorContext) {
-        return (...args: any[]) => { return target(...args) }
-    }
-}
-
-export function methodPost() {
-
-}
-
-export function methodPut() {
-    
-}
-
-export function methodDelete() {
-    
-}
-
 export function define<T, A extends unknown[]>(item: { new(...args: A): T }, ...props: A): T {
     let instance: T
 

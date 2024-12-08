@@ -1,142 +1,117 @@
 import { isClient } from "./app.mjs";
-import { comp } from "./component.mjs";
+import { comp, isComponent } from "./component.mjs";
+import { useEventMap } from "./composables.mjs";
+import { useId, useURLCapture } from "./helpers.mjs";
 import { useSignal } from "./stateble.mjs";
-const instanceRouter = {
-    notFound: comp(({ path }, { $, text }) => {
-        $('div', {}, () => {
-            text(`Not found ${path}`.trim());
-        });
-    }),
-    onPageEnd: (null),
-    onBeforeResolve: (() => { }),
-    onBeforeCapture: (raw => raw),
-    currentRoute: useSignal({}),
-    routes: {},
-    toNotFound(path) {
-        this.currentRoute.value.url = path;
-        this.currentRoute.value.capture = undefined;
-        this.currentRoute.value.component = instanceRouter.notFound;
-        this.currentRoute.value.isNotFound = true;
-    },
-    toLocation(captute) {
-        this.currentRoute.value.url = captute.fullPath;
-        this.currentRoute.value.capture = captute;
-        this.currentRoute.value.component = captute.route?.component;
-        this.currentRoute.value.isNotFound = false;
+const eventHandler = useEventMap();
+let defaultNotFound = null;
+const route = useSignal({
+    notFound: false,
+    component: defaultNotFound,
+    current: {
+        path: '',
+        query: {},
+        params: {},
+        hash: null
     }
-};
-const useRouteResolve = (path) => {
-    if (instanceRouter.onBeforeCapture) {
-        if (typeof path == 'object')
-            path.path = instanceRouter.onBeforeCapture(path.path);
-        else
-            path = instanceRouter.onBeforeCapture(path);
-    }
-    const capture = router.capture(path);
-    if (capture.isInternalRoute) {
-        for (const middleware of [instanceRouter.onBeforeResolve, ...(capture.route?.middleware ?? [])]) {
-            if (middleware(capture))
-                return null;
+});
+let routes = {};
+const router = comp((_, { dyn, use }) => {
+    dyn([route.value.component], () => {
+        const { component, notFound, current } = route.value;
+        if (component)
+            use(component, notFound ? { url: current.path } : {});
+    });
+});
+router.defineRoutes = ($routes) => {
+    const readGroup = (group, prefix = '', middleware = []) => {
+        for (const [url, data] of Object.entries(group)) {
+            if (isComponent(data)) {
+                const finalURL = `${prefix}${url[0] != '/' ? '/' + url : url}`;
+                routes[finalURL] = { component: data, middleware, path: finalURL.split('/').slice(1) };
+                continue;
+            }
+            readGroup(data.childs, `${prefix}${url}`, [...middleware, ...(data.middleware ?? [])]);
         }
+    };
+    readGroup($routes);
+    return router;
+};
+router.getRoutes = () => routes;
+const updateRouter = async (url) => {
+    if (url.origin) {
+        window.location = url.fullPath;
+        return true;
     }
-    if (isClient && capture.origin != null) {
-        window.location = capture.fullPath;
+    const currentPath = url.path.split('/').slice(1);
+    let params = {};
+    for (const info of Object.values(routes)) {
+        if (info.path.length != currentPath.length)
+            continue;
+        let isBreak = false;
+        params = {};
+        for (let i = 0; i < info.path.length; i++) {
+            const infoPath = info.path[i];
+            const currentPathValue = currentPath[i];
+            if (infoPath[0] == ':') {
+                params[infoPath.slice(1)] = currentPathValue;
+            }
+            else if (infoPath != currentPathValue) {
+                isBreak = true;
+                break;
+            }
+        }
+        if (isBreak)
+            continue;
+        for (const middleware of info.middleware) {
+            if (!middleware())
+                return false;
+        }
+        route.value.current = {
+            hash: url.hash,
+            path: url.path,
+            query: url.query,
+            params
+        };
+        route.value.component = info.component;
+        return true;
     }
-    if (instanceRouter.onPageEnd) {
-        instanceRouter.onPageEnd();
-        instanceRouter.onPageEnd = null;
+    if (defaultNotFound) {
+        route.value.notFound = true;
+        route.value.component = defaultNotFound;
     }
-    if (!capture.isInternalRoute && capture.origin == null)
-        return (instanceRouter.toNotFound(capture.fullPath), false);
-    return (instanceRouter.toLocation(capture), true);
+    return false;
 };
 if (isClient) {
     window.addEventListener("popstate", () => {
-        useRouteResolve(document.location.toString());
+        const url = useURLCapture(document.location.toString());
+        updateRouter(url).then(e => {
+            if (e) {
+                eventHandler.broadcast('end', (void 0));
+                eventHandler.clear('end');
+            }
+        });
     });
 }
-instanceRouter.toNotFound('');
-const router = comp((_, { dyn, use }) => {
-    dyn([instanceRouter.currentRoute.value.component], () => {
-        const { component, isNotFound, url } = instanceRouter.currentRoute.value;
-        use(component, isNotFound ? { path: url } : {});
-    });
-});
-router.defineMiddleware = (handle) => handle;
-router.onPage = (handle) => (!isClient ? void 0 : (instanceRouter.onPageEnd = handle(), void 0));
-router.onBeforeResolve = (handle) => (instanceRouter.onBeforeResolve = handle, router);
-router.onBeforeCapture = (handle) => (instanceRouter.onBeforeCapture = handle, router);
-router.setNotFound = (comp) => (instanceRouter.notFound = comp, router);
-router.push = (value) => useRouteResolve(value);
-router.pop = () => {
-    if (!isClient)
-        return false;
-    if (instanceRouter.onPageEnd) {
-        instanceRouter.onPageEnd();
-        instanceRouter.onPageEnd = null;
-    }
-    return (window.history.back(), true);
-};
-router.setRoutes = (routes) => {
-    instanceRouter.routes = {};
-    const readGroup = (group, prefix = '', middlewares = []) => {
-        for (const [path, pathProps] of Object.entries(group)) {
-            if (pathProps.composable) {
-                const route = prefix + path;
-                const explode = route.split('/');
-                instanceRouter.routes[route] = {
-                    check(otherURL) {
-                        const response = { valid: true, params: {} };
-                        if (otherURL.length != explode.length)
-                            return (response.valid = false, response);
-                        for (let i = 0; i < otherURL.length; i++) {
-                            const [my, other] = [explode[i], otherURL[i]];
-                            if (my[0] != '{' && my != other)
-                                return (response.valid = false, response);
-                            else if (my[0] == '{')
-                                response.params[my.slice(1, -1)] = other;
-                        }
-                        return response;
-                    },
-                    middleware: middlewares,
-                    component: pathProps,
-                };
-                continue;
-            }
-            readGroup(pathProps.group, prefix + path, [...middlewares, ...(pathProps.middleware ?? [])]);
-        }
-    };
-    readGroup(routes);
+router.on = (event, handler) => {
+    eventHandler.on(event, handler);
     return router;
 };
-router.capture = (url) => {
-    let path = typeof url == 'string' ? url : url.path;
-    let query = typeof url == 'string' ? undefined : url.query;
-    const parsedURL = new URL(path, path[0] == '/' ? 'http://localhost' : undefined);
-    let captured = {
-        fullPath: url,
-        path: parsedURL.pathname,
-        origin: parsedURL.origin.includes('//localhost') ? null : parsedURL.origin,
-        port: +(parsedURL.port) || null,
-        query: query ?? Object.fromEntries(parsedURL.searchParams.entries()),
-        params: {},
-        isInternalRoute: false,
-        route: undefined
-    };
-    if (captured.origin != null)
-        return captured;
-    const explode = captured.path.split('/');
-    for (const [_, data] of Object.entries(instanceRouter.routes)) {
-        const { valid, params } = data.check(explode);
-        if (valid) {
-            captured.isInternalRoute = true;
-            captured.params = params;
-            captured.route = data;
-            break;
-        }
-    }
-    return captured;
+router.push = async (url) => {
+    const urlData = useURLCapture(url);
+    return updateRouter(urlData).then(e => {
+        if (e == true && isClient)
+            history.pushState(useId(), '', urlData.fullPath);
+        return e;
+    });
 };
-Object.defineProperty(router, 'getRoutes', { get() { return instanceRouter.routes; } });
-Object.defineProperty(router, 'current', { get() { return instanceRouter.currentRoute.value.capture; } });
+router.pop = () => {
+    if (isClient)
+        history.back();
+};
+router.setNotFound = (comp) => {
+    defaultNotFound = comp;
+    return router;
+};
+Object.defineProperty(router, 'current', { get: () => route.value.current });
 export default router;

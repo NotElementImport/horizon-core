@@ -2,7 +2,7 @@ import type { Fetching, Signal } from "../type.d.ts"
 import { isClient } from "./app.mjs"
 import { useEventMap } from "./composables.mjs"
 import { useBusId } from "./helpers.mjs"
-import { tryGetRaw, useSignal, useStrongRef, watch } from "./stateble.mjs"
+import { unSignal, useSignal, useStrongRef, watch } from "./stateble.mjs"
 
 const sharedEventMap = useEventMap<{ 'on-sync': void }>()
 
@@ -31,11 +31,11 @@ export const createSharedJSON = () => {
     const json: Record<string, any> = { data: {}, cacheControl: {} }
     for (const [key, value] of sharedStructure.data.entries()) {
         if(`${key}`[0] == "#") continue
-        json.data[key] = tryGetRaw(value)
+        json.data[key] = unSignal(value)
     }
     for (const [key, value] of sharedStructure.cacheControl.entries()) {
         if(key[0] == "#") continue
-        json.cacheControl[key] = tryGetRaw(value)
+        json.cacheControl[key] = unSignal(value)
     }
     return JSON.stringify(json)
 }

@@ -87,6 +87,12 @@ export const useSignal = (value, config = {
         parentSetter = set;
         watch(value, (v) => { value = v; }, { deep: true });
     }
+    else if (isSignal(value)) {
+        const parentSignal = value;
+        watch(parentSignal, _ => { value = parentSignal.value; }, { deep: true });
+        value = parentSignal.unsafe;
+        parentSetter = (v) => parentSignal.value = v;
+    }
     const useProxy = (raw, path) => {
         if (typeof raw != 'object' || raw == null || (raw.composable))
             return raw;
@@ -99,8 +105,6 @@ export const useSignal = (value, config = {
                     return () => JSON.stringify(raw);
                 if (p in target) {
                     const rawValue = (target[p] ?? (safeMode ? 'null' : null));
-                    if (isSignalListener)
-                        signalListener.push(rawValue);
                     return rawValue != null
                         ? rawValue.asWeakRef({
                             value: () => target[p],
@@ -111,7 +115,7 @@ export const useSignal = (value, config = {
                         })
                         : rawValue;
                 }
-                return (safeMode ? 'null' : undefined);
+                return undefined;
             },
             set(target, p, newValue, receiver) {
                 const $path = Array.isArray(target) && p == 'length' ? path : [...path, p];
@@ -141,9 +145,9 @@ export const useComputed = (handle) => {
         onInit(signal) {
             isSignalListener = true;
             signalListener = [];
-            signal.value = handle(tryGetRaw);
+            signal.value = handle(unSignal);
             for (const item of signalListener)
-                watch(item, () => signal.value = handle(tryGetRaw));
+                watch(item, () => signal.value = handle(unSignal));
             isSignalListener = false;
             signalListener = [];
         }
@@ -229,7 +233,7 @@ export const useStrongRef = (value, handle, forceDeep = false) => {
     const unwatch = watch(value, (val) => handle(val, unwatch), { flush: 'sync', deep: forceDeep });
     return unwatch;
 };
-export const tryGetRaw = (value) => {
+export const unSignal = (value) => {
     if (typeof value == 'function')
         value = value();
     if (isSignal(value)) {

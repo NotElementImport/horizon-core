@@ -4,4 +4,9 @@ unit.test.mjs
 unit.test.mts
 npm.build.mjs
 tsconfig.json
+local.test.mjs
 deno/
+deno.json
+deno.lock
+package-lock.json
+tsconfig.json

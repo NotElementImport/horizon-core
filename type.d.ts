@@ -7,7 +7,7 @@ export namespace Signal {
 
     interface Shared<T, K = T> extends Signal<T, K> {}
 
-    type ProxySignal<T extends LikeProxy> = T
+    type ProxySignal<T extends Primitive.LikeProxy> = T
 
     interface IWeakRef<T> {
         value(): T
@@ -38,7 +38,7 @@ export namespace Signal {
 }
 
 export namespace URL {
-    type URL = string|{ origin: string, path: string, query: Record<string, unknown> }
+    type URL = string|{ origin?: string, path?: string, query?: Record<string, unknown> }
 
     type ParsedURL = {
         fullPath: string
@@ -72,7 +72,7 @@ export namespace Router {
         getRoutes(): Record<string, RegisteredRoute>
         setNotFound(comp: Component.Component<{ url: string }>|null): HorizonRouter
         on(event: 'end', handle: () => void): HorizonRouter
-        push(url: URL.URL): Promise<boolean>
+        push(url: URL.URL, options?: { silent?: boolean }): Promise<boolean>
         pop(): void
         readonly current: { path: string, query: Record<string, unknown>, params: Record<string, unknown>, hash: string|null }
     }
@@ -104,19 +104,29 @@ export namespace Fetching {
         method?: 'GET'|'POST'|'PUT'|'DELETE'|'PATCH'|'OPTIONS'
         type?: 'json'|'text'|'arrayBuffer'|'blob'
         immediate?: boolean
-        defaultValue?: T
-        cacheKey?: string
+        defaultValue?: T|null
+        key?: string
+        cacheTimeout?: number
+        cacheControl?: HorizonFetchCacheControl
+    }
+
+    interface RequestInitCached<T = unknown> extends RequestInit<T> {
+        key: string
         cacheControl?: HorizonFetchCacheControl
     }
 
     interface HorizonFetch<T = unknown> {
-        rawData: Promise<T>
         response: Signal.Signal<T|null>
-        status: Signal.Signal<number>
-        error: Signal.Signal<boolean>
-        fetching: Signal.Signal<boolean>
-        restart(): Promise<T>
+        status: number
+        error: boolean
+        fetching: boolean
+        fetch(): Promise<T>
     }
+
+    type PromiseHorizonFetch<T = unknown> = Promise<HorizonFetch<T>> & HorizonFetch<T>
+
+    type HorizonFetchMethod = <T = unknown>(url: Fetching.URL, options: Fetching.RequestInit<T>) => Fetching.PromiseHorizonFetch<T>
+    type HorizonFetchMethod = <T = unknown>(url: Fetching.URL, options: Fetching.RequestInitCached<T>) => Fetching.PromiseHorizonFetch<T>
 
     interface CacheControlConfig {
         shared?: boolean
@@ -301,6 +311,7 @@ export namespace Component {
 
     interface AtomList<S extends Record<string, any>> {
         inject(handle: () => unknown): void
+        implement(item: Props.OrSignal<string|number>|Function|Component.Component): void
         onUnmount(handle: () => void): void
 
         $(type: keyof HTMLElementTagNameMap, props?: Record<string, any> & AtomConfig, slot?: (node: AtomResponse) => void): AtomResponse

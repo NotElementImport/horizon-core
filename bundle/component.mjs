@@ -3,6 +3,9 @@ export function comp(slot) {
     const $composable = useComposite(null, {});
     return { slot, get composable() { return $composable; } };
 }
+export const isComponent = (data) => {
+    return data && typeof data == 'object' && 'composable' in data ? true : false;
+};
 export function mod(slot) {
     const $composable = useComposite(null, {});
     return (props = {}, $slot = () => { }) => {

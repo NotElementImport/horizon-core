@@ -1,6 +1,6 @@
 {
   "name": "horizon-core",
-  "version": "0.1.0-alpha24",
+  "version": "0.1.1-a2",
   "description": "Frontend web framework `Horizon`",
   "homepage": "https://github.com/NotElementImport/horizon-core",
   "main": "index.js",
@@ -44,7 +44,8 @@
     }
   },
   "scripts": {
-    "start": "node ./npm.build.mjs -esm&&npx tsc -p ./tsconfig.json&&node ./unit.test.mjs -esm",
+    "start": "node ./npm.build.mjs -esm&&npx tsc -p ./tsconfig.json&&node ./unit.test.mjs -esm&&npm run deno-test",
+    "deno-test": "deno test unit.test.mjs --no-check",
     "test": "ts-node-esm --transpile-only ./unit.test.mts",
     "poststart": ""
   },

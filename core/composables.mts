@@ -2,7 +2,7 @@ import type { Composable, CSS, Props, Signal } from "../type.d.ts"
 import { isClient } from "./app.mjs"
 import { toDelay, useId, useStylePrettify } from "./helpers.mjs"
 import { useStack } from "./stack.mjs"
-import { tryGetRaw, useProxySignal, useSignal, watch } from "./stateble.mjs"
+import { unSignal, useProxySignal, useSignal, watch } from "./stateble.mjs"
 
 type StyleSignal = CSS.Style
 type StyleStringSignal = Signal.Signal<string, string>
@@ -103,7 +103,7 @@ export const useNormalizer = (
     config: { chart?: boolean } = {}
 ) => {
     const process = () => {
-        let rawData = tryGetRaw<number[]>(data)
+        let rawData = unSignal<number[]>(data)
         const output = [] as { value: number, raw: number }[]
         let   maxValue = -Infinity
         let   minValue = Infinity

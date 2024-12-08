@@ -1,20 +1,12 @@
-import { comp } from './core/component.mts'
-import Router from './core/router.mjs'
+import { defineApp } from './bundle/app.mjs'
+import { comp } from './bundle/component.mjs'
+import Router from './bundle/router.mjs'
+import { useComputed, useSignal, watch } from './bundle/stateble.mjs'
 
-const main = comp((_, { }) => {
+const test = useSignal({ test: 'asdsad' })
 
-})
+const otherTest = useSignal(test)
 
-const checkAuth = () => true
+otherTest.value.test = 'wawa'
 
-Router.defineRoutes({
-    '': {
-        childs: {
-            '': main,
-            ':id': main
-        },
-        middleware: [ checkAuth ],
-    } 
-})
-
-console.log(await Router.push('/10'))
+console.log(test.value, otherTest.value)

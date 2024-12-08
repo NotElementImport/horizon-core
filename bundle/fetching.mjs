@@ -1,55 +1,72 @@
-import { toURLMeta, toURLString } from "./helpers.mjs";
-import { tryGetRaw, useSignal } from "./stateble.mjs";
+import { toURLString } from "./helpers.mjs";
+import { useSyncSignal } from "./shared.mjs";
+import { unSignal, useSignal } from "./stateble.mjs";
 export const useFetch = (url, options = {}) => {
-    const fetching = useSignal(false);
+    const cacheControler = options.cacheControl;
+    const cacheKey = options.key;
+    const cacheTimeout = options.cacheTimeout;
+    const response = cacheKey
+        ? useSyncSignal(options.defaultValue ?? null, { key: cacheKey })
+        : useSignal(options.defaultValue ?? null);
+    const status = useSignal(0);
     const error = useSignal(false);
-    const status = useSignal(200);
-    const response = useSignal(options.defaultValue ?? null);
-    let rawData;
-    const restart = async () => {
-        if (options.cacheControl) {
-            if (!options.cacheKey)
-                throw new Error('Cache key not sets useFetch()');
-            const cache = options.cacheControl.read(tryGetRaw(options.cacheKey));
-            if (cache) {
-                response.value = cache;
-                return cache;
+    const fetching = useSignal(false);
+    const startRequest = async () => {
+        fetching.value = true;
+        const type = options.type ?? 'json';
+        if (cacheControler && cacheKey) {
+            const data = cacheControler.read(unSignal(cacheKey));
+            if (data) {
+                response.value = data;
+                status.value = 0;
+                fetching.value = false;
+                error.value = false;
+                return returnObject;
             }
         }
-        fetching.value = true;
-        response.value = options.defaultValue ?? null;
-        rawData = fetch(toURLString(url), options)
+        await fetch(toURLString(url), options)
             .then(async (e) => {
             error.value = !e.ok;
             status.value = e.status;
-            if (error.value) {
-                return e.text();
+            if (type == 'text') {
+                response.value = await e.text();
+                fetching.value = false;
+                return response.value;
             }
-            return e[options.type ?? 'text']();
-        })
-            .then(e => {
-            fetching.value = false;
-            response.value = e;
-            if (options.cacheControl && !error.value) {
-                if (!options.cacheKey)
-                    throw new Error('Cache key not sets useFetch()');
-                options.cacheControl.write(tryGetRaw(options.cacheKey), e);
+            try {
+                response.value = await e[type]();
+                fetching.value = false;
+                if (cacheControler && cacheKey) {
+                    cacheControler.write(unSignal(cacheKey), response.value, cacheTimeout);
+                }
+                return response.value;
             }
-            return e;
+            catch (_) {
+                console.error(_);
+                error.value = true;
+                response.value = await e.text();
+                fetching.value = false;
+                return response.value;
+            }
         });
-        return rawData;
+        return returnObject;
     };
-    if (options.immediate ?? true)
-        restart();
-    return {
-        error,
-        status,
-        rawData,
+    const returnObject = {
         response,
-        fetching,
-        restart
+        get status() { return status.value; },
+        get fetching() { return fetching.value; },
+        get error() { return error.value; },
+        fetch: startRequest
     };
-};
-export const useRecord = (url) => {
-    const urlMeta = toURLMeta(url);
+    const promise = new Promise(async (resolve) => {
+        resolve((options.immediate ?? true)
+            ? await startRequest()
+            : returnObject);
+    });
+    Object.defineProperty(promise, 'response', { get: () => response });
+    Object.defineProperty(promise, 'status', { get: () => status.value });
+    Object.defineProperty(promise, 'error', { get: () => error.value });
+    Object.defineProperty(promise, 'fetching', { get: () => fetching.value });
+    Object.defineProperty(promise, 'fetch', { value: startRequest });
+    return promise;
 };

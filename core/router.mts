@@ -50,7 +50,7 @@ router.defineRoutes = ($routes) => {
 
 router.getRoutes = () => routes
 
-const updateRouter = async (url: URL.ParsedURL) => {
+const updateRouter = async (url: URL.ParsedURL, options: { silent?: boolean } = {}) => {
     if(url.origin) {
         // @ts-ignore
         window.location = url.fullPath
@@ -92,7 +92,8 @@ const updateRouter = async (url: URL.ParsedURL) => {
             params
         }
 
-        route.value.component = info.component as Component.Component
+        if(!(options.silent ?? false))
+            route.value.component = info.component as Component.Component
 
         return true
     }
@@ -123,11 +124,11 @@ router.on = (event, handler) => {
     return router
 }
 
-router.push = async (url) => {
+router.push = async (url, options = {}) => {
     const urlData = useURLCapture(url)
-    return updateRouter(urlData).then(e => {
+    return updateRouter(urlData, options).then(e => {
         if(e == true && isClient)
-            history.pushState(useId(), '', urlData.fullPath)
+            history.pushState(useId(), '', urlData.fullPath.replace(urlData.origin ?? '', ''))
         return e
     })
 }

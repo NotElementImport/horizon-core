@@ -1,5 +1,5 @@
 import { useId } from "./helpers.mjs";
-import type { Primitive, Signal } from "../type.d.ts";
+import type { Primitive, Props, Signal } from "../type.d.ts";
 import { currentApp } from "./app.mjs";
 
 const weakMap = new Map<any, any>();
@@ -36,7 +36,7 @@ export const clearSignalHeap = () => {
 }
 
 export const useSignal = <T extends unknown, K = T>(
-    value: T,
+    value: Props.OrSignal<T>,
     config: Signal.SignalConfig<T, K> = {
         onSet: (v) => {}
     }
@@ -111,6 +111,13 @@ export const useSignal = <T extends unknown, K = T>(
             { deep: true }
         )
     }
+    else if(isSignal(value)) {
+        const parentSignal = value as Signal.Signal<any, any>
+        watch(parentSignal, _ => { value = parentSignal.value }, { deep: true })
+        // @ts-ignore
+        value = parentSignal.unsafe
+        parentSetter = (v) => parentSignal.value = v
+    }
     
     const useProxy = (raw: any, path: string[]) => {
         if(typeof raw != 'object' || raw == null || (raw.composable))
@@ -126,9 +133,6 @@ export const useSignal = <T extends unknown, K = T>(
                     return () => JSON.stringify(raw)
                 if(p in target) {
                     const rawValue = (target[p] ?? (safeMode ? 'null' : null))
-
-                    if(isSignalListener)
-                        signalListener.push(rawValue)
                     return rawValue != null 
                         ? rawValue.asWeakRef({
                             value: () => target[p],
@@ -139,7 +143,7 @@ export const useSignal = <T extends unknown, K = T>(
                         })
                         : rawValue
                 }
-                return (safeMode ? 'null' : undefined)
+                return undefined
             },
             set(target, p, newValue, receiver) {
                 const $path = Array.isArray(target) && p == 'length' ? path : [...path, p];
@@ -177,10 +181,10 @@ export const useComputed = <T extends any>(handle: (raw: (value: any) => any) =>
             isSignalListener = true
             signalListener   = []
 
-            signal.value = handle(tryGetRaw)
+            signal.value = handle(unSignal)
 
             for (const item of signalListener)
-                watch(item, () => signal.value = handle(tryGetRaw))
+                watch(item, () => signal.value = handle(unSignal))
 
             isSignalListener = false
             signalListener   = []
@@ -189,7 +193,7 @@ export const useComputed = <T extends any>(handle: (raw: (value: any) => any) =>
 }
 
 export const useProxySignal = <T extends Primitive.LikeProxy>(
-    signal: Signal.Signal<any>, 
+    signal: Signal.Signal<T>, 
     config: Signal.SignalProxySetup<T> = {}
 ): Signal.ProxySignal<T> => {
     return (new Proxy(signal.value, {
@@ -293,7 +297,7 @@ export const useStrongRef = <T extends unknown, K = T>(value: T|Signal.Signal<T,
     return unwatch
 }
 
-export const tryGetRaw =  <T extends unknown, K = T>(value: T|Signal.Signal<T, K>): K => {
+export const unSignal =  <T extends unknown, K = T>(value: T|Signal.Signal<T, K>): K => {
     if(typeof value == 'function')
         value = value()
     

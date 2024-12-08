@@ -1,8 +1,8 @@
 import type { Component, Primitive, Signal } from "../type.d.ts"
-import { useStylePrettify } from "./helpers.mjs"
+import { resetBusId, useStylePrettify } from "./helpers.mjs"
 import { createSharedJSON, executeSync } from "./shared.mjs"
 import { IStack, useStack } from "./stack.mjs"
-import { tryGetRaw, useStrongRef, watch, clearSignalHeap } from "./stateble.mjs"
+import { unSignal, useStrongRef, watch, clearSignalHeap } from "./stateble.mjs"
 
 export interface IHorizonApp {
     readonly composable: Primitive.ComponentNode<null>
@@ -88,6 +88,7 @@ export function defineApp(conifg: {
             hydrateMeta = '$'
             currentComposable = $app
             $app.dom = null as any
+            resetBusId()
             clearSignalHeap()
         },
         get isHydrate() { return isHydrate },
@@ -474,11 +475,13 @@ function toDomString(comp: Primitive.ComponentNode<any>) {
             if(name == 'html' || name[0] == '@' || name[0] == '#' || !value)
                 continue
             else if(name == 'style')
-                result += ` ${name}="${useStylePrettify(tryGetRaw(value))}"`
-            else if(name == 'class')
-                result += ` ${name}="${Array.isArray(value) ? value.join(' ') : tryGetRaw(value)}"`
+                result += ` ${name}="${useStylePrettify(unSignal(value))}"`
+            else if(name == 'class') {
+                const unpacked =  unSignal(value) 
+                result += ` ${name}="${Array.isArray(unpacked) ? value.join(' ') : unpacked}"`
+            }
             else
-                result += ` ${name}="${tryGetRaw(value)}"`
+                result += ` ${name}="${unSignal(value)}"`
         }
         result += `>`
 
@@ -486,7 +489,7 @@ function toDomString(comp: Primitive.ComponentNode<any>) {
             return
 
         if(comp.props.html)
-            result += tryGetRaw(comp.props.html) 
+            result += unSignal(comp.props.html) 
         else
             for (const composable of comp.childs) {
                 layer(composable)
@@ -514,7 +517,7 @@ function toDom<T extends HTMLElement>(type: keyof HTMLElementTagNameMap, props: 
                 case 'stop': {
                     handle = (ev: Event) => {
                         mainHandle(ev)
-                        ev.stopPropagation()
+                        ev.stopImmediatePropagation()
                     }
                 }break
                 case 'prevent': {

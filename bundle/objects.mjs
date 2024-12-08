@@ -30,23 +30,6 @@ export function storage(config = {}) {
         return (value) => value;
     };
 }
-export function record() {
-    return function (target, ctx) {
-        target[modifySym] = true;
-        target[isSingletone] = true;
-    };
-}
-export function methodGet() {
-    return function (target, ctx) {
-        return (...args) => { return target(...args); };
-    };
-}
-export function methodPost() {
-}
-export function methodPut() {
-}
-export function methodDelete() {
-}
 export function define(item, ...props) {
     let instance;
     if (!item[modifySym])

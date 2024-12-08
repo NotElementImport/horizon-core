@@ -1,5 +1,5 @@
 import type { Fetching, Primitive, URL } from "../type.d.ts"
-import { tryGetRaw } from "./stateble.mjs"
+import { unSignal } from "./stateble.mjs"
 
 const charTable = '0123456789qwertyuiopasdfghjklzxcvbnm#@$%&*'
 
@@ -15,6 +15,10 @@ export const useBusId = () => {
     return (busCounter++, busCounter)
 }
 
+export const resetBusId = () => {
+    busCounter = -1
+}
+
 export const useStylePrettify = (style: Record<string, any> | string) => {
     if(typeof style == 'string') return style
 
@@ -28,16 +32,16 @@ export const toURLString = (url: Fetching.URL): string => {
     if(typeof url == 'string') return url
     else if(url instanceof URL) return url.toString()
 
-    let final = url.path
+    let final = `${url.origin ?? ''}${url.path}`
 
     if(url.pathParams) Object.entries(url.pathParams)
-        .map(([key, value]) => final = final.replace(`{${key}}`, tryGetRaw(value)))
+        .map(([key, value]) => final = final.replace(`{${key}}`, unSignal(value)))
 
     // @ts-ignore
     let query = (Object.keys(url.query ?? {}).length) 
         ? `?${(new URLSearchParams(
             Object.fromEntries(Object.entries(url.query ?? {})
-                .map(([key, value]) => [key, tryGetRaw(value)]))
+                .map(([key, value]) => [key, unSignal(value)]))
         )).toString()}` 
         : ''
 
@@ -151,14 +155,18 @@ export const toDelay = (signature: string, from: string|number|Date|undefined = 
 }
 
 export const useURLCapture = (url: URL.URL): URL.ParsedURL => {
-    let hasOrigin = (typeof url == 'string' ? url : url.path)[0] != '/'
-    let path = typeof url == 'string' ? url : url.path;
+    let hasOrigin = (typeof url == 'string' ? url : (url.path ?? location.pathname))[0] != '/'
+    let path = typeof url == 'string' ? url : (url.path ?? location.pathname);
     let query = typeof url == 'string' ? undefined : url.query;
 
     const parsedURL = new URL(path, !hasOrigin ? 'http://localhost' : undefined)
+    const searchParams = typeof url == 'string' ? parsedURL.searchParams : new URLSearchParams(query as any)
+    const renderSearchParams = searchParams.toString()
+    const basePath = `${parsedURL.pathname}${renderSearchParams ? '?'+searchParams.toString() : ''}`
 
     const captured = {
-        fullPath: parsedURL.href,
+        fullPath: parsedURL.origin + basePath,
+        basePath: basePath,
         origin: hasOrigin ? parsedURL.origin : null,
         path: parsedURL.pathname,
         query: query ?? Object.fromEntries(parsedURL.searchParams.entries()),
