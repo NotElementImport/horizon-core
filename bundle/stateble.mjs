@@ -2,7 +2,10 @@ import { useId } from "./helpers.mjs";
 import { currentApp } from "./app.mjs";
 const weakMap = new Map();
 if (!Object.asWeakRef) {
-    Object.prototype.asWeakRef = function (data) { weakMap.set(this, data); return this; };
+    Object.prototype.asWeakRef = function (data) {
+        weakMap.set(this, data);
+        return this;
+    };
     Object.prototype.weakRef = function (end) {
         const data = weakMap.get(this);
         if (end)
@@ -19,28 +22,47 @@ const sharedSignals = new Map();
 const sWatch = Symbol();
 const sValue = Symbol();
 const sAsRaw = Symbol();
-const fakeNull = 'null';
+const fakeNull = "null";
 export const clearSignalHeap = () => {
     sharedSignals.clear();
     weakMap.clear();
     signalListener = [];
 };
+export const signalMemoryMap = () => {
+    const sharedObject = Object.fromEntries(sharedSignals.entries());
+    const weakMapObject = [];
+    weakMap.forEach((_, key) => {
+        const info = fromWeakRef(key, false);
+        weakMapObject.push({ value: key, signal: info.signal, path: info.path });
+    });
+    if (!currentApp.isDev) {
+        return {};
+    }
+    return {
+        isSearchingSignals: isSignalListener,
+        findedSignals: signalListener,
+        shared: Object.fromEntries(Object.entries(sharedObject).map(([key, signal]) => [key, { value: signal.value, signal: signal }])),
+        weak: weakMapObject,
+    };
+};
 export const useSignal = (value, config = {
-    onSet: (v) => { }
+    onSet: (v) => { },
 }) => {
-    if (config.key && sharedSignals.has(config.key))
+    if (config.key && sharedSignals.has(config.key)) {
         return sharedSignals.get(config.key);
+    }
     let parentSetter = (v) => { };
     let safeMode = true;
     const signal = {
         [sWatch]: new Map(),
-        get [sValue]() { return signal.value; },
+        get [sValue]() {
+            return signal.value;
+        },
         get [sAsRaw]() {
-            if (isSignalListener)
+            if (isSignalListener) {
                 signalListener.push(signal.value);
-            return config.asRaw
-                ? config.asRaw(value)
-                : value;
+            }
+            return config.asRaw ? config.asRaw(value) : value;
         },
         get asRaw() {
             safeMode = true;
@@ -56,9 +78,9 @@ export const useSignal = (value, config = {
                 ? value.asWeakRef({
                     value: () => value,
                     set: (v) => signal.value = v,
-                    path: '$',
+                    path: "$",
                     pathIndex: 0,
-                    signal
+                    signal,
                 })
                 : null;
         },
@@ -67,77 +89,88 @@ export const useSignal = (value, config = {
             const rawValue = (value ?? fakeNull).asWeakRef({
                 value: () => value,
                 set: (v) => signal.value = v,
-                path: '$',
+                path: "$",
                 pathIndex: 0,
-                signal
+                signal,
             });
-            if (isSignalListener)
+            if (isSignalListener) {
                 signalListener.push(rawValue);
+            }
             return rawValue;
         },
         set value(v) {
-            value = useProxy(v, ['$']);
+            value = useProxy(v, ["$"]);
             parentSetter(v);
-            useEffect(value, ['$']);
+            useEffect(value, ["$"]);
             config.onSet?.(v);
-        }
+        },
     };
     if ((value ?? null) != null && value.hasWeakRef()) {
         const { set } = fromWeakRef(value, false);
         parentSetter = set;
-        watch(value, (v) => { value = v; }, { deep: true });
+        watch(value, (v) => {
+            value = v;
+        }, { deep: true });
     }
     else if (isSignal(value)) {
         const parentSignal = value;
-        watch(parentSignal, _ => { value = parentSignal.value; }, { deep: true });
+        watch(parentSignal, (_) => {
+            value = parentSignal.value;
+        }, { deep: true });
         value = parentSignal.unsafe;
         parentSetter = (v) => parentSignal.value = v;
     }
     const useProxy = (raw, path) => {
-        if (typeof raw != 'object' || raw == null || (raw.composable))
+        if (typeof raw != "object" || raw == null || (raw.composable)) {
             return raw;
+        }
         Object.entries(raw).forEach(([key, value]) => {
             raw[key] = useProxy(value, [...path, key]);
         });
-        const proxy = (new Proxy(raw, {
+        const proxy = new Proxy(raw, {
             get(target, p) {
-                if (p == 'toString')
+                if (p == "toString") {
                     return () => JSON.stringify(raw);
+                }
                 if (p in target) {
-                    const rawValue = (target[p] ?? (safeMode ? 'null' : null));
+                    const rawValue = target[p] ?? (safeMode ? "null" : null);
                     return rawValue != null
                         ? rawValue.asWeakRef({
                             value: () => target[p],
                             set: (v) => proxy[p] = v,
                             path: p,
                             pathIndex: path.length,
-                            signal
+                            signal,
                         })
                         : rawValue;
                 }
                 return undefined;
             },
             set(target, p, newValue, receiver) {
-                const $path = Array.isArray(target) && p == 'length' ? path : [...path, p];
+                const $path = Array.isArray(target) && p == "length"
+                    ? path
+                    : [...path, p];
                 const result = Reflect.set(target, p, useProxy(newValue, $path), receiver);
                 useEffect(value, $path);
                 return result;
-            }
-        }));
+            },
+        });
         return proxy;
     };
     const useEffect = (value, path) => {
-        signal[sWatch].forEach(callback => {
+        signal[sWatch].forEach((callback) => {
             callback(value, path);
         });
     };
-    value = useProxy(value, ['$']);
+    value = useProxy(value, ["$"]);
     if (config.onInit)
         config.onInit(signal);
-    if (config.key)
+    if (config.key) {
         sharedSignals.set(config.key, signal);
-    if (config.devExpose && (currentApp?.isDev ?? false))
+    }
+    if (config.devExpose && (currentApp?.isDev ?? false)) {
         globalThis[config.devExpose] = signal;
+    }
     return signal;
 };
 export const useComputed = (handle) => {
@@ -146,11 +179,22 @@ export const useComputed = (handle) => {
             isSignalListener = true;
             signalListener = [];
             signal.value = handle(unSignal);
-            for (const item of signalListener)
+            for (const item of signalListener) {
                 watch(item, () => signal.value = handle(unSignal));
+            }
             isSignalListener = false;
             signalListener = [];
-        }
+        },
+    });
+};
+export const useLazyComputed = (models, handle) => {
+    return useSignal(null, {
+        onInit(signal) {
+            for (const item of models) {
+                watch(item, () => signal.value = handle(unSignal));
+            }
+            signal.value = handle(unSignal);
+        },
     });
 };
 export const useProxySignal = (signal, config = {}) => {
@@ -163,9 +207,9 @@ export const useProxySignal = (signal, config = {}) => {
             return config.set(target, p, newValue) ?? true;
         },
         get(target, p, receiver) {
-            if (p == sWatch
-                || p == sAsRaw
-                || p == sValue)
+            if (p == sWatch ||
+                p == sAsRaw ||
+                p == sValue)
                 return Reflect.get(signal, p, receiver);
             else if (!config.get)
                 return Reflect.get(target, p, receiver);
@@ -180,11 +224,12 @@ export const useProxySignal = (signal, config = {}) => {
         },
     }));
 };
-const isClient = typeof window !== 'undefined';
+const isClient = typeof window !== "undefined";
 export const watch = (value, handle, config = {}) => {
-    let { key = useId(), flush = 'sync', on = 'both', deep = false } = config;
-    const flagError = (on == 'server' && isClient) || (on == 'client' && !isClient);
-    const launch = flush == 'async'
+    let { key = useId(), flush = "sync", on = "both", deep = false } = config;
+    const flagError = (on == "server" && isClient) ||
+        (on == "client" && !isClient);
+    const launch = flush == "async"
         ? async (value) => handle(value)
         : handle;
     if (isSignal(value) && !flagError) {
@@ -201,7 +246,8 @@ export const watch = (value, handle, config = {}) => {
         return () => (void 0);
     const unWatch = () => weakRef.signal[sWatch].delete(key);
     weakRef.signal[sWatch].set(key, (value, path) => {
-        if ((path.length - 1) < weakRef.pathIndex || path[weakRef.pathIndex] != weakRef.path)
+        if ((path.length - 1) < weakRef.pathIndex ||
+            path[weakRef.pathIndex] != weakRef.path)
             return;
         else if (!deep && (path.length - 1) > weakRef.pathIndex)
             return;
@@ -210,32 +256,60 @@ export const watch = (value, handle, config = {}) => {
     return unWatch;
 };
 export const isSignal = (data) => {
-    if (typeof data == 'object' && data && data[sWatch])
+    if (typeof data == "object" && data && data[sWatch])
         return true;
     return false;
 };
 export const fromWeakRef = (data, end = true) => {
-    if (typeof data == 'undefined')
-        return { value: () => data, set: (v) => data = v, path: '', pathIndex: 0, signal: null };
-    if (isSignal(data))
-        return { value: () => data._rawValue, set: (v) => data.value = v, path: '$', pathIndex: 0, signal: data };
-    else if (data != null && data.hasWeakRef())
+    if (typeof data == "undefined") {
+        return {
+            value: () => data,
+            set: (v) => data = v,
+            path: "",
+            pathIndex: 0,
+            signal: null,
+        };
+    }
+    if (isSignal(data)) {
+        return {
+            value: () => data._rawValue,
+            set: (v) => data.value = v,
+            path: "$",
+            pathIndex: 0,
+            signal: data,
+        };
+    }
+    else if (data != null && data.hasWeakRef()) {
         return data.weakRef(end);
-    return { value: () => data, set: (v) => data = v, path: '', pathIndex: 0, signal: null };
+    }
+    return {
+        value: () => data,
+        set: (v) => data = v,
+        path: "",
+        pathIndex: 0,
+        signal: null,
+    };
 };
 export const useStrongRef = (value, handle, forceDeep = false) => {
     if (isSignal(value)) {
         handle(value[sAsRaw], () => void 0);
-        const unwatch = watch(value, () => handle(value[sAsRaw], unwatch), { deep: true, flush: 'sync' });
+        const unwatch = watch(value, () => handle(value[sAsRaw], unwatch), {
+            deep: true,
+            flush: "sync",
+        });
         return unwatch;
     }
     handle(value, () => void 0);
-    const unwatch = watch(value, (val) => handle(val, unwatch), { flush: 'sync', deep: forceDeep });
+    const unwatch = watch(value, (val) => handle(val, unwatch), {
+        flush: "sync",
+        deep: forceDeep,
+    });
     return unwatch;
 };
 export const unSignal = (value) => {
-    if (typeof value == 'function')
+    if (typeof value == "function") {
         value = value();
+    }
     if (isSignal(value)) {
         return value[sAsRaw];
     }

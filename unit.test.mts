@@ -1,12 +1,20 @@
-import { defineApp } from './bundle/app.mjs'
-import { comp } from './bundle/component.mjs'
-import Router from './bundle/router.mjs'
-import { useComputed, useSignal, watch } from './bundle/stateble.mjs'
+import { defineApp } from "./bundle/app.mjs";
+import { comp, mod } from "./bundle/component.mjs";
 
-const test = useSignal({ test: 'asdsad' })
+const app = defineApp();
 
-const otherTest = useSignal(test)
+const BetweenTest = mod((_, { $, slot }) => {
+  $("section", {}, () => {
+    $("div", {});
+    slot({});
+    $("div", {});
+  });
+});
 
-otherTest.value.test = 'wawa'
+const main = comp((_, { text }) => {
+  BetweenTest({}, () => {
+    text("Test");
+  });
+});
 
-console.log(test.value, otherTest.value)
+console.log(await app.renderSSR(main));

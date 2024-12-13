@@ -13,7 +13,7 @@ export interface IHorizonApp {
     domPipe(dom: HTMLElement | Element, parent?: Primitive.ComponentNode<any>): void;
     domPipeTo(dom: HTMLElement | Element, index: number, parent?: Primitive.ComponentNode<any>): void;
     pipeTo(composable: Primitive.ComponentNode<any>, index: number, parent?: Primitive.ComponentNode<any>): void;
-    lead(composable: Primitive.ComponentNode<any>, handle: () => (Promise<void> | void)): Promise<void>;
+    lead(composable: Primitive.ComponentNode<any>, handle: () => Promise<void> | void): Promise<void>;
     clearHeap(): void;
     renderSSR(component: Component.Component, config?: {
         withMeta?: boolean;

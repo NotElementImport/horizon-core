@@ -3,145 +3,252 @@ import { isClient } from "./app.mjs";
 import { comp, isComponent } from "./component.mjs";
 import { useEventMap } from "./composables.mjs";
 import { useId, useURLCapture } from "./helpers.mjs";
-import { useSignal } from "./stateble.mjs";
+import { useSignal, watch } from "./stateble.mjs";
 
-const eventHandler = useEventMap<{'end': void}>()
+const eventHandler = useEventMap<{ "end": void }>();
 
-let defaultNotFound: Component.Component|null = null
+let defaultNotFound: Component.Component | null = null;
 
 const route = useSignal({
-    notFound: false,
-    component: defaultNotFound as Component.Component|null,
-    current: {
-        path: '',
-        query: {} as Record<string, unknown>,
-        params: {} as Record<string, unknown>,
-        hash: null as null|string
-    }
-})
+  notFound: false,
+  component: defaultNotFound as Component.Component | null,
+  animation: null,
+  animationReverse: false,
+  current: {
+    path: "",
+    query: {} as Record<string, unknown>,
+    params: {} as Record<string, unknown>,
+    hash: null as null | string,
+  },
+});
 
-let routes: Record<string, Router.RegisteredRoute> = {}
+let routes: Record<string, Router.RegisteredRoute> = {};
 
 const router = comp((_, { dyn, use }) => {
-    dyn([ route.value.component ], () => {
-        const { component, notFound, current } = route.value
+  const triggerForRedraw = useSignal(false);
 
-        if(component)
-            use(component, notFound ? { url: current.path } : { })
-    })
-}) as Router.HorizonRouter
+  watch(route.value.component, () => {
+    const redraw = () => triggerForRedraw.value = !triggerForRedraw.value;
+
+    if (!route.value.animation) {
+      return redraw();
+    }
+
+    const isReversed = route.value.animationReverse;
+
+    const animationMeta = {
+      duration: 300,
+      easing: "ease-in",
+      direction: "normal",
+    };
+
+    const initStyle = () => {
+      dynDom.dom.style.position = "absolute";
+      dynDom.dom.style.display = "block";
+      dynDom.dom.style.width = "100%";
+      dynDom.dom.style.height = "100%";
+    };
+
+    const rollbackStyle = () => {
+      dynDom.dom.style.removeProperty("position");
+      dynDom.dom.style.removeProperty("display");
+      dynDom.dom.style.removeProperty("width");
+      dynDom.dom.style.removeProperty("height");
+    };
+
+    const animations = {
+      "h-slide": () => {
+        initStyle();
+        dynDom.dom.animate([
+          { left: "0" },
+          { left: isReversed ? "-100%" : "100%" },
+        ], animationMeta).onfinish = () => {
+          redraw();
+          dynDom.dom.animate([
+            { left: isReversed ? "100%" : "-100%" },
+            { left: "0" },
+          ], animationMeta).onfinish = () => {
+            rollbackStyle();
+          };
+        };
+      },
+      "v-slide": () => {
+        initStyle();
+        dynDom.dom.animate([
+          { top: "0" },
+          { top: isReversed ? "-100%" : "100%" },
+        ], animationMeta).onfinish = () => {
+          redraw();
+          dynDom.dom.animate([
+            { top: isReversed ? "100%" : "-100%" },
+            { top: "0" },
+          ], animationMeta).onfinish = () => {
+            rollbackStyle();
+          };
+        };
+      },
+      "fade": () => {
+        initStyle();
+        dynDom.dom.animate([
+          { opacity: "1" },
+          { opacity: "0" },
+        ], animationMeta).onfinish = () => {
+          redraw();
+          dynDom.dom.animate([
+            { opacity: "0" },
+            { opacity: "1" },
+          ], animationMeta).onfinish = () => {
+            rollbackStyle();
+          };
+        };
+      },
+    };
+
+    // @ts-ignore
+    animations[route.value.animation]();
+  });
+
+  const dynDom = dyn([triggerForRedraw], () => {
+    const { component, notFound, current } = route.value;
+
+    if (component) {
+      use(component, notFound ? { url: current.path } : {});
+    }
+  });
+}) as Router.HorizonRouter;
 
 router.defineRoutes = ($routes) => {
-    const readGroup = (group: Router.Routes, prefix: string = '', middleware: Function[] = []) => {
-        for (const [url, data] of Object.entries(group)) {
-            if(isComponent(data)) {
-                const finalURL = `${prefix}${url[0] != '/' ? '/'+url : url }`
-                routes[finalURL] = { component: data as Component.Component, middleware, path: finalURL.split('/').slice(1) }
-                continue
-            }
+  const readGroup = (
+    group: Router.Routes,
+    prefix: string = "",
+    middleware: Function[] = [],
+  ) => {
+    for (const [url, data] of Object.entries(group)) {
+      if (isComponent(data)) {
+        const finalURL = `${prefix}${url[0] != "/" ? "/" + url : url}`;
+        routes[finalURL] = {
+          component: data as Component.Component,
+          middleware,
+          path: finalURL.split("/").slice(1),
+        };
+        continue;
+      }
 
-            // @ts-ignore
-            readGroup(data.childs, `${prefix}${url}`, [ ...middleware, ...(data.middleware ?? []) ])
-        }
+      // @ts-ignore
+      readGroup(data.childs, `${prefix}${url}`, [
+        ...middleware,
+        ...(data.middleware ?? []),
+      ]);
     }
-    readGroup($routes)
-    return router
-}
+  };
+  readGroup($routes);
+  return router;
+};
 
-router.getRoutes = () => routes
+router.getRoutes = () => routes;
 
-const updateRouter = async (url: URL.ParsedURL, options: { silent?: boolean } = {}) => {
-    if(url.origin) {
-        // @ts-ignore
-        window.location = url.fullPath
-        return true
-    }
-    
-    const currentPath = url.path.split('/').slice(1)
-    let   params: Record<string, any> = {}
+const updateRouter = async (
+  url: URL.ParsedURL,
+  options: { silent?: boolean } = {},
+) => {
+  if (url.origin) {
+    // @ts-ignore
+    window.location = url.fullPath;
+    return true;
+  }
 
-    for (const info of Object.values(routes)) {
-        if(info.path.length != currentPath.length) continue
-        let isBreak = false
-        params = {}
-        
-        for(let i = 0; i < info.path.length; i ++) {
-            const infoPath = info.path[i]
-            const currentPathValue = currentPath[i]
+  const currentPath = url.path.split("/").slice(1);
+  let params: Record<string, any> = {};
 
-            if(infoPath[0] == ':') {
-                params[infoPath.slice(1)] = currentPathValue
-            }
-            else if(infoPath != currentPathValue) {
-                isBreak = true
-                break
-            }
-        }
+  for (const info of Object.values(routes)) {
+    if (info.path.length != currentPath.length) continue;
+    let isBreak = false;
+    params = {};
 
-        if(isBreak) continue
+    for (let i = 0; i < info.path.length; i++) {
+      const infoPath = info.path[i];
+      const currentPathValue = currentPath[i];
 
-        for (const middleware of info.middleware) {
-            if(!middleware())
-                return false
-        }
-        
-        route.value.current = {
-            hash: url.hash,
-            path: url.path,
-            query: url.query,
-            params
-        }
-
-        if(!(options.silent ?? false))
-            route.value.component = info.component as Component.Component
-
-        return true
+      if (infoPath[0] == ":") {
+        params[infoPath.slice(1)] = currentPathValue;
+      } else if (infoPath != currentPathValue) {
+        isBreak = true;
+        break;
+      }
     }
 
-    if(defaultNotFound) {
-        route.value.notFound = true
-        route.value.component = defaultNotFound
+    if (isBreak) continue;
+
+    for (const middleware of info.middleware) {
+      if (!middleware()) {
+        return false;
+      }
     }
 
-    return false
-}
+    route.value.current = {
+      hash: url.hash,
+      path: url.path,
+      query: url.query,
+      params,
+    };
 
-if(isClient) {
-    window.addEventListener("popstate", () => {
-        const url = useURLCapture(document.location.toString())
+    if (!(options.silent ?? false)) {
+      route.value.component = info.component as Component.Component;
+    }
 
-        updateRouter(url).then(e => {
-            if(e) {
-                eventHandler.broadcast('end', (void 0))
-                eventHandler.clear('end')
-            }
-        })
-    })
+    route.value.notfound = false;
+    return true;
+  }
+
+  if (defaultNotFound) {
+    route.value.notfound = true;
+    route.value.component = defaultNotFound;
+  }
+
+  return false;
+};
+
+if (isClient) {
+  window.addEventListener("popstate", () => {
+    const url = useURLCapture(document.location.toString());
+
+    updateRouter(url).then((e) => {
+      if (e) {
+        eventHandler.broadcast("end", void 0);
+        eventHandler.clear("end");
+      }
+    });
+  });
 }
 
 router.on = (event, handler) => {
-    eventHandler.on(event, handler)
-    return router
-}
+  eventHandler.on(event, handler);
+  return router;
+};
 
 router.push = async (url, options = {}) => {
-    const urlData = useURLCapture(url)
-    return updateRouter(urlData, options).then(e => {
-        if(e == true && isClient)
-            history.pushState(useId(), '', urlData.fullPath.replace(urlData.origin ?? '', ''))
-        return e
-    })
-}
+  const urlData = useURLCapture(url);
+  route.value.animation = options.animation ?? null;
+  route.value.animationReverse = options.animationReverse ?? false;
+  return updateRouter(urlData, options).then((e) => {
+    route.value.animation = null;
+    route.value.animationReverse = false;
+    if (e == true && isClient) {
+      history.pushState(useId(), "", urlData.basePath);
+    }
+    return e;
+  });
+};
 
 router.pop = () => {
-    if(isClient) history.back()
-}
+  if (isClient) history.back();
+};
 
 router.setNotFound = (comp) => {
-    defaultNotFound = comp
-    return router
-}
+  defaultNotFound = comp;
+  return router;
+};
 
-Object.defineProperty(router, 'current', { get: () => route.value.current })
+Object.defineProperty(router, "current", { get: () => route.value.current });
 
-export default router
+export default router;

@@ -1,11 +1,15 @@
 {
   "name": "horizon-core",
-  "version": "0.1.1-a2",
+  "version": "0.1.2-a2-1",
   "description": "Frontend web framework `Horizon`",
   "homepage": "https://github.com/NotElementImport/horizon-core",
   "main": "index.js",
   "type": "module",
   "exports": {
+    "./testing": {
+      "types": "./types/testing.d.ts",
+      "default": "./bundle/testing.mjs"
+    },
     ".": {
       "types": "./types/app.d.ts",
       "default": "./bundle/app.mjs"
