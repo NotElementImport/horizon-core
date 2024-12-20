@@ -1,20 +1,12 @@
-import { defineApp } from "./bundle/app.mjs";
-import { comp, mod } from "./bundle/component.mjs";
+import { defineApp } from "./core/app.mts";
+import { comp } from "./core/component.mts";
 
-const app = defineApp();
+const app = defineApp({ devMode: true });
 
-const BetweenTest = mod((_, { $, slot }) => {
-  $("section", {}, () => {
-    $("div", {});
-    slot({});
-    $("div", {});
+const main = comp((_, { $, text }) => {
+  $("div", {}, () => {
+    text("");
   });
 });
 
-const main = comp((_, { text }) => {
-  BetweenTest({}, () => {
-    text("Test");
-  });
-});
-
-console.log(await app.renderSSR(main));
+console.log(await app.renderSSR(main, {}));

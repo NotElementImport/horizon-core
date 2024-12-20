@@ -455,7 +455,11 @@ export namespace Component {
     dyn(
       follower: Props.OrSignal<any>[],
       handle: () => void | Promise<void>,
-      config?: { deepUnmount?: boolean; unmount?: boolean },
+      config?: {
+        deepUnmount?: boolean;
+        unmount?: boolean;
+        deepWatch?: boolean;
+      },
     ): void;
   }
 

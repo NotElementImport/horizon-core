@@ -1,4 +1,4 @@
-import type { Composable, CSS, Props, Signal } from "../type.d.ts";
+import type { Composable, CSS, Primitive, Props, Signal } from "../type.d.ts";
 type StyleSignal = CSS.Style;
 type StyleStringSignal = Signal.Signal<string, string>;
 export declare const useStyle: <T extends CSS.Style | string>(object: T) => T extends string ? StyleStringSignal : StyleSignal;
@@ -6,6 +6,17 @@ export declare const useColorSheme: (config?: {
     get?: () => Composable.ColorSheme;
     set?: (v: Composable.ColorSheme) => void;
 }) => Signal.Signal<Composable.ColorSheme, Composable.ColorSheme>;
+export declare const useTransport: <T extends Primitive.LikeProxy>(signalA: Signal.Signal<T>, signalB: Signal.Signal<T>) => {
+    move(index: string | number): boolean;
+    add(index: string | number): boolean;
+    sub(index: string | number): boolean;
+    toObject(config?: {
+        aName?: string;
+        bName?: string;
+    }): {
+        [x: string]: any;
+    };
+};
 interface ProcessConfig {
     at?: string | number;
     period?: number | string;
@@ -22,14 +33,14 @@ export declare const useNormalizer: (data: Props.OrSignal<number[]>, config?: {
     raw: number;
 }[], number[]>;
 interface Subscribe<T> {
-    on(handle: (v: T) => void, key?: string): (() => boolean);
+    on(handle: (v: T) => void, key?: string): () => boolean;
     off(key: string): boolean;
     broadcast(v: T): void;
     clear(): void;
 }
 export declare const useSubscribe: <T extends unknown>() => Subscribe<T>;
 interface EventMap<T extends Record<PropertyKey, unknown>> {
-    on<K extends keyof T>(eventKey: K, handle: (v: T[K]) => void, key?: string): (() => boolean);
+    on<K extends keyof T>(eventKey: K, handle: (v: T[K]) => void, key?: string): () => boolean;
     off(eventKey: keyof T, key: string): boolean;
     broadcast<K extends keyof T>(eventKey: K, v: T[K]): void;
     clear(eventKey?: keyof T): void;

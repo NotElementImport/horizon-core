@@ -282,12 +282,16 @@ async function render<T extends Record<string, any>>(
         app.stack.while(handle);
       },
       implement(item: any) {
-        if (typeof item == "object" && "composable" in item) {
-          $nodes.use(item);
-        } else if (typeof item == "function") {
-          item();
-        } else {
-          $nodes.text(item);
+        item = unSignal(item);
+
+        if (item) {
+          if (typeof item == "object" && "composable" in item) {
+            $nodes.use(item);
+          } else if (typeof item == "function") {
+            item();
+          } else {
+            $nodes.text(item);
+          }
         }
       },
       onUnmount(handle: () => unknown) {
@@ -540,7 +544,7 @@ async function render<T extends Record<string, any>>(
             });
 
             stack.run(true).then(() => app.stack = oldStack);
-          });
+          }, { deep: config.deepWatch ?? false });
         }
 
         const index = app.hydCounter;
@@ -793,4 +797,3 @@ function toDom<T extends HTMLElement>(
 
   return vDom;
 }
-

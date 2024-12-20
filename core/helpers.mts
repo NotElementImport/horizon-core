@@ -41,7 +41,7 @@ export const toURLString = (url: Fetching.URL): string => {
   if (typeof url == "string") return url;
   else if (url instanceof URL) return url.toString();
 
-  let final = `${url.origin ?? ""}${url.path}`;
+  let final = `${url.path}`;
 
   if (url.pathParams) {
     Object.entries(url.pathParams)
@@ -76,15 +76,21 @@ export const toURLMeta = (url: Fetching.URL) => {
 
   const processPathParams = (path: string): string => {
     if (path.includes("{")) {
-      for (const part of path.split("{").slice(1)) {
+      for (const part of path.split("{$").slice(1)) {
         const [param] = part.split("}", 2);
         const [key, value = ""] = param.split(":");
 
-        if (key[0] == "$") {
-          // @ts-ignore
-          path = path.replace(`{${key}}`, process.env[key.slice(1)]);
-          continue;
-        }
+        console.log(`"${key}"`, `"${value}"`);
+
+        // @ts-ignore
+        path = path.replaceAll(
+          `{$${param}}`,
+          process.env[key] ?? value,
+        );
+      }
+      for (const part of path.split("{").slice(1)) {
+        const [param] = part.split("}", 2);
+        const [key, value = ""] = param.split(":");
 
         meta.pathParams[key] = decodeURIComponent(value).trim();
         meta.defaultPathParams[key] = decodeURIComponent(value).trim();
@@ -226,4 +232,3 @@ export const useRequestCapture = (
     url: urlMeta,
   };
 };
-

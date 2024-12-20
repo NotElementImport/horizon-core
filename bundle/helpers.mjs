@@ -27,7 +27,7 @@ export const toURLString = (url) => {
         return url;
     else if (url instanceof URL)
         return url.toString();
-    let final = `${url.origin ?? ""}${url.path}`;
+    let final = `${url.path}`;
     if (url.pathParams) {
         Object.entries(url.pathParams)
             .map(([key, value]) => final = final.replace(`{${key}}`, unSignal(value)));
@@ -48,13 +48,15 @@ export const toURLMeta = (url) => {
     };
     const processPathParams = (path) => {
         if (path.includes("{")) {
+            for (const part of path.split("{$").slice(1)) {
+                const [param] = part.split("}", 2);
+                const [key, value = ""] = param.split(":");
+                console.log(`"${key}"`, `"${value}"`);
+                path = path.replaceAll(`{$${param}}`, process.env[key] ?? value);
+            }
             for (const part of path.split("{").slice(1)) {
                 const [param] = part.split("}", 2);
                 const [key, value = ""] = param.split(":");
-                if (key[0] == "$") {
-                    path = path.replace(`{${key}}`, process.env[key.slice(1)]);
-                    continue;
-                }
                 meta.pathParams[key] = decodeURIComponent(value).trim();
                 meta.defaultPathParams[key] = decodeURIComponent(value).trim();
                 if (value != "") {

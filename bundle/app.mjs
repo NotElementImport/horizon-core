@@ -173,14 +173,17 @@ async function render(app, comp, props) {
                 app.stack.while(handle);
             },
             implement(item) {
-                if (typeof item == "object" && "composable" in item) {
-                    $nodes.use(item);
-                }
-                else if (typeof item == "function") {
-                    item();
-                }
-                else {
-                    $nodes.text(item);
+                item = unSignal(item);
+                if (item) {
+                    if (typeof item == "object" && "composable" in item) {
+                        $nodes.use(item);
+                    }
+                    else if (typeof item == "function") {
+                        item();
+                    }
+                    else {
+                        $nodes.text(item);
+                    }
                 }
             },
             onUnmount(handle) {
