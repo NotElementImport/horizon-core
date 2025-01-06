@@ -54,6 +54,9 @@ export const useSignal = (value, config = {
     let parentSetter = (v) => { };
     let safeMode = true;
     const signal = {
+        toString() {
+            return signal.asRaw;
+        },
         [sWatch]: new Map(),
         get [sValue]() {
             return signal.value;

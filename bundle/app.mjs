@@ -1,7 +1,7 @@
 import { resetBusId, useStylePrettify } from "./helpers.mjs";
 import { createSharedJSON, executeSync } from "./shared.mjs";
 import { useStack } from "./stack.mjs";
-import { clearSignalHeap, unSignal, useStrongRef, watch } from "./stateble.mjs";
+import { clearSignalHeap, unSignal, useComputed, useStrongRef, watch } from "./stateble.mjs";
 export const isClient = typeof document !== "undefined";
 const arrayInsert = (array, index, value) => {
     return [...array.slice(0, index), value, ...array.slice(index, array.length)];
@@ -271,6 +271,9 @@ async function render(app, comp, props) {
                 const stack = app.stack;
                 const hash = app.hydMeta + `${app.hydCounter}txt`;
                 const props = { ...args[1], html: args[0], hash };
+                if (typeof props.html == 'function') {
+                    props.html = useComputed(props.html);
+                }
                 const vDom = toDom("span", props);
                 const parent = app.leadComposable;
                 const index = app.hydCounter;
@@ -395,7 +398,7 @@ async function render(app, comp, props) {
                             await dynamicRender();
                         });
                         stack.run(true).then(() => app.stack = oldStack);
-                    });
+                    }, { deep: config.deepWatch ?? false });
                 }
                 const index = app.hydCounter;
                 stack.push(async () => {

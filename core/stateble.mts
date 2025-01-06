@@ -80,6 +80,9 @@ export const useSignal = <T extends unknown, K = T>(
   let safeMode = true;
 
   const signal = {
+    toString() {
+      return signal.asRaw;
+    },
     [sWatch]: new Map<string, Function>(),
     get [sValue]() {
       return signal.value;
@@ -409,4 +412,16 @@ export const unSignal = <T,>(value: T): Signal.UnpackSignalRaw<T> => {
     return value[sAsRaw];
   }
   return value as any;
+};
+
+export const useDeepClone = (value: any): any => {
+  value = unSignal(value);
+  if (typeof value !== "object" || value == null) {
+    return value;
+  }
+  // @ts-ignore
+  const clone = Object.fromEntries(
+    Object.entries(value).map(([index, item]) => [index, useDeepClone(item)]),
+  );
+  return Array.isArray(value) ? Object.values(clone as any) : clone;
 };

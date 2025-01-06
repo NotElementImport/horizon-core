@@ -6,6 +6,10 @@ export declare const useColorSheme: (config?: {
     get?: () => Composable.ColorSheme;
     set?: (v: Composable.ColorSheme) => void;
 }) => Signal.Signal<Composable.ColorSheme, Composable.ColorSheme>;
+export declare const useDebounceCallback: (watching: Props.OrSignal<any>[], delayMs: number, callback: () => unknown) => void;
+export declare const useRandomInt: (a: number, b?: number) => number;
+export declare const useRandomFloat: (a?: number, b?: number) => number;
+export declare const useRandomString: (len?: number) => string;
 export declare const useTransport: <T extends Primitive.LikeProxy>(signalA: Signal.Signal<T>, signalB: Signal.Signal<T>) => {
     move(index: string | number): boolean;
     add(index: string | number): boolean;

@@ -2,7 +2,7 @@ import type { Component, Primitive, Signal } from "../type.d.ts";
 import { resetBusId, useStylePrettify } from "./helpers.mjs";
 import { createSharedJSON, executeSync } from "./shared.mjs";
 import { IStack, useStack } from "./stack.mjs";
-import { clearSignalHeap, unSignal, useStrongRef, watch } from "./stateble.mjs";
+import { clearSignalHeap, unSignal, useComputed, useStrongRef, watch } from "./stateble.mjs";
 
 export interface IHorizonApp {
   readonly composable: Primitive.ComponentNode<null>;
@@ -392,6 +392,9 @@ async function render<T extends Record<string, any>>(
         const stack = app.stack;
         const hash = app.hydMeta + `${app.hydCounter}txt`;
         const props = { ...args[1], html: args[0], hash };
+        if(typeof props.html == 'function') {
+          props.html = useComputed(props.html);
+        }
         const vDom = toDom("span", props);
 
         const parent = app.leadComposable;

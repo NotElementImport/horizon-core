@@ -2,7 +2,13 @@ import type { Composable, CSS, Primitive, Props, Signal } from "../type.d.ts";
 import { isClient } from "./app.mjs";
 import { toDelay, useId, useStylePrettify } from "./helpers.mjs";
 import { useStack } from "./stack.mjs";
-import { unSignal, useProxySignal, useSignal, watch } from "./stateble.mjs";
+import {
+  unSignal,
+  useDeepClone,
+  useProxySignal,
+  useSignal,
+  watch,
+} from "./stateble.mjs";
 
 type StyleSignal = CSS.Style;
 type StyleStringSignal = Signal.Signal<string, string>;
@@ -49,6 +55,169 @@ export const useColorSheme = (
       },
     },
   );
+};
+
+export const useDebounceCallback = (
+  watching: Props.OrSignal<any>[],
+  delayMs: number,
+  callback: () => unknown,
+) => {
+  let debounceTimer: number = -1;
+
+  const runCallback = () => {
+    if (debounceTimer != -1) {
+      clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(() => callback(), delayMs);
+  };
+
+  for (const object of watching) {
+    watch(object, () => {
+      runCallback();
+    }, { deep: true });
+  }
+
+  return runCallback;
+};
+
+export const useRandomInt = (a: number, b?: number) => {
+  const min = b != null ? a : 0;
+  const max = b != null ? b - a : a;
+  return Math.floor(min + Math.random() * max);
+};
+
+export const useRandomFloat = (a?: number, b?: number) => {
+  a = a ?? 1;
+  const min = b != null ? a : 0;
+  const max = b != null ? b - a : a;
+  return min + Math.random() * max;
+};
+
+export const useRandomString = (len: number = 10) => {
+  return useId(len) as string;
+};
+
+export const useHistory = <State extends unknown>(
+  config: {
+    length?: number;
+    listen?: Signal.Signal<State>;
+    keepName?: string;
+  } = {},
+) => {
+  const { length: maxLength = 10, keepName, listen } = config;
+
+  let lastStateHistory: State[] = [];
+  let undoLength = 0;
+  let doPush = false;
+
+  const history = keepName
+    ? useLocalStorage(keepName, { defaultValue: [] })
+    : useSignal([]);
+
+  if (listen) {
+    let isHistory = false;
+
+    watch(listen, () => {
+      if (isHistory) return;
+      instance.push(
+        useDeepClone(listen.value) as State,
+      );
+      isHistory = false;
+    }, { deep: false });
+
+    watch(history, () => {
+      if (!doPush) {
+        isHistory = true;
+        listen.value = history.value[history.value.length - 1];
+      }
+      doPush = false;
+    });
+  }
+
+  const fromHistoryUpdate = () => {
+    const index = lastStateHistory.length - undoLength;
+    history.value = lastStateHistory.slice(
+      0,
+      index,
+    );
+    return index - 1;
+  };
+
+  const instance = {
+    get value() {
+      return history.value as State[];
+    },
+    push(state: State) {
+      doPush = true;
+      if (undoLength != 0) {
+        undoLength = 0;
+        lastStateHistory = [];
+      }
+      history.value.push(state);
+      if (history.value.length > maxLength) {
+        history.value.shift();
+      }
+      return history.value[history.value.length - 1];
+    },
+    undo() {
+      if (undoLength == 0) {
+        lastStateHistory = history.value;
+      } else if (undoLength == lastStateHistory.length) {
+        return undefined;
+      }
+      undoLength++;
+      return lastStateHistory[fromHistoryUpdate() + 1];
+    },
+    redo() {
+      if (undoLength == 0) {
+        return history.value[lastStateHistory.length - 1];
+      }
+      undoLength--;
+      return lastStateHistory[fromHistoryUpdate()];
+    },
+    clear() {
+      history.value = [];
+      lastStateHistory = [];
+      undoLength = 0;
+    },
+  };
+
+  return instance;
+};
+
+export const useFriction = (
+  watchers: Props.OrSignal<unknown>[],
+  config: {
+    setup: (controller: AbortController) => unknown;
+    abort?: () => void;
+    debounce?: number;
+  },
+) => {
+  const abortController = new AbortController();
+  const { setup, abort, debounce = 0 } = config;
+  const runDebounce = useDebounceCallback(
+    [],
+    debounce,
+    () => setup(abortController),
+  );
+
+  const launch = (firstLaunch = false) => {
+    if (!firstLaunch) {
+      abort?.();
+      abortController.abort();
+      runDebounce();
+    } else {
+      setup(abortController);
+    }
+  };
+
+  for (const object of watchers) {
+    watch(object, () => {
+      launch();
+    });
+  }
+
+  launch(true);
 };
 
 export const useTransport = <T extends Primitive.LikeProxy>(
@@ -382,4 +551,3 @@ export const useGetDOM = <T extends HTMLElement>(
   const dom = document.body.querySelector(selector);
   if (dom) onFound(dom as T);
 };
-

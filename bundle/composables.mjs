@@ -28,6 +28,34 @@ export const useColorSheme = (config = {}) => {
         },
     });
 };
+export const useDebounceCallback = (watching, delayMs, callback) => {
+    let debounceTimer = -1;
+    const runCallback = () => {
+        if (debounceTimer != -1) {
+            clearTimeout(debounceTimer);
+        }
+        debounceTimer = setTimeout(() => callback(), delayMs);
+    };
+    for (const object of watching) {
+        watch(object, () => {
+            runCallback();
+        }, { deep: true });
+    }
+};
+export const useRandomInt = (a, b) => {
+    const min = b != null ? a : 0;
+    const max = b != null ? b - a : a;
+    return Math.floor(min + Math.random() * max);
+};
+export const useRandomFloat = (a, b) => {
+    a = a ?? 1;
+    const min = b != null ? a : 0;
+    const max = b != null ? b - a : a;
+    return min + Math.random() * max;
+};
+export const useRandomString = (len = 10) => {
+    return useId(len);
+};
 export const useTransport = (signalA, signalB) => {
     const removeItem = (index, item) => {
         delete item[index];
