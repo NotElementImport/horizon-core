@@ -191,10 +191,11 @@ export const useFriction = (
     setup: (controller: AbortController) => unknown;
     abort?: () => void;
     debounce?: number;
+    immediate?: boolean;
   },
 ) => {
-  const abortController = new AbortController();
-  const { setup, abort, debounce = 0 } = config;
+  let abortController = new AbortController();
+  const { setup, abort, immediate = true, debounce = 0 } = config;
   const runDebounce = useDebounceCallback(
     [],
     debounce,
@@ -205,6 +206,7 @@ export const useFriction = (
     if (!firstLaunch) {
       abort?.();
       abortController.abort();
+      abortController = new AbortController();
       runDebounce();
     } else {
       setup(abortController);
@@ -217,7 +219,9 @@ export const useFriction = (
     });
   }
 
-  launch(true);
+  if (immediate) {
+    launch(true);
+  }
 };
 
 export const useTransport = <T extends Primitive.LikeProxy>(
@@ -509,6 +513,19 @@ export const useScrollLock = () => {
   });
 };
 
+type TriggerSignal = Signal.Signal<boolean> & { trigger: () => void };
+export const useTrigger = (handle: (push: Function) => void): TriggerSignal => {
+  const signal = useSignal(false, {
+    onInit(signal) {
+      handle(() => signal.value = !signal.value);
+    },
+  });
+  signal.trigger = () => {
+    signal.value = !signal.value;
+  };
+  return signal;
+};
+
 export const useLocalStorage = <T extends any>(
   key: string,
   { defaultValue = null as T }: { defaultValue?: T } = {},
@@ -527,6 +544,28 @@ export const useLocalStorage = <T extends any>(
   });
 };
 
+export const useSessionStorage = <T extends any>(
+  key: string,
+  { defaultValue = null as T }: { defaultValue?: T } = {},
+) => {
+  return useSignal<T>(defaultValue, {
+    key,
+    onInit(signal) {
+      if (isClient) {
+        watch(
+          signal,
+          (v) => sessionStorage.setItem(key, JSON.stringify(v)),
+          {
+            deep: true,
+          },
+        );
+        signal.value = JSON.parse(sessionStorage.getItem(key) ?? "null") ??
+          defaultValue;
+      }
+    },
+  });
+};
+
 export const useDocumentHtml = (handle: (dom: HTMLHtmlElement) => void) => {
   if (!isClient) {
     return void 0;
@@ -536,7 +575,7 @@ export const useDocumentHtml = (handle: (dom: HTMLHtmlElement) => void) => {
 
 export const useDocumentBody = (handle: (dom: HTMLBodyElement) => void) => {
   if (!isClient) {
-    return null;
+    return void 0;
   }
   handle(document.body as HTMLBodyElement);
 };
@@ -546,7 +585,7 @@ export const useGetDOM = <T extends HTMLElement>(
   onFound: (dom: T) => void,
 ) => {
   if (!isClient) {
-    return null;
+    return void 0;
   }
   const dom = document.body.querySelector(selector);
   if (dom) onFound(dom as T);

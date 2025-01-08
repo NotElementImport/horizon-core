@@ -1,13 +1,13 @@
-import { useDebounceCallback, useFriction } from "./core/composables.mts";
-import { useSignal } from "./core/stateble.mts";
+import { defineApp } from "./core/app.mts";
+import { comp } from "./core/component.mts";
 
-const search = useSignal<string>("");
+const app = defineApp();
 
-useFriction([search], {
-  debounce: 600,
-  setup() {
-    console.log("Test friction");
-  },
+const main = comp((_, { $, text }) => {
+  $(`article`, {}, () => {
+    text(() => `Hello world!`);
+  });
 });
 
-search.value = "Test";
+console.log(await app.renderSSR(main, {}));
+

@@ -2,7 +2,13 @@ import type { Component, Primitive, Signal } from "../type.d.ts";
 import { resetBusId, useStylePrettify } from "./helpers.mjs";
 import { createSharedJSON, executeSync } from "./shared.mjs";
 import { IStack, useStack } from "./stack.mjs";
-import { clearSignalHeap, unSignal, useComputed, useStrongRef, watch } from "./stateble.mjs";
+import {
+  clearSignalHeap,
+  unSignal,
+  useComputed,
+  useStrongRef,
+  watch,
+} from "./stateble.mjs";
 
 export interface IHorizonApp {
   readonly composable: Primitive.ComponentNode<null>;
@@ -47,7 +53,7 @@ export interface IHorizonApp {
     component: Component.Component,
     config?: {
       withMeta?: boolean;
-      withSecurity?: boolean;
+      notClearAtEnd?: boolean;
       onlyString?: boolean;
       unmountAtEnd?: boolean;
     },
@@ -226,7 +232,7 @@ export function defineApp(conifg: {
 
       const response = ssrMeta + toDomString(component.composable);
 
-      if (config.withSecurity ?? true) {
+      if (!config.notClearAtEnd) {
         if (config.unmountAtEnd ?? false) {
           component.composable.unmount();
         } else {
@@ -235,8 +241,10 @@ export function defineApp(conifg: {
 
         component.composable.dom = null as any;
         component.composable.props = {};
+
+        $instance.clearHeap();
       }
-      $instance.clearHeap();
+
       return response;
     },
 
@@ -392,7 +400,7 @@ async function render<T extends Record<string, any>>(
         const stack = app.stack;
         const hash = app.hydMeta + `${app.hydCounter}txt`;
         const props = { ...args[1], html: args[0], hash };
-        if(typeof props.html == 'function') {
+        if (typeof props.html == "function") {
           props.html = useComputed(props.html);
         }
         const vDom = toDom("span", props);
