@@ -1,3 +1,35 @@
+export namespace H {
+  type int = number;
+  type float = number;
+  type double = number;
+  type decimal = number;
+
+  type dict<T extends number | string | symbol = string, K = unknown> =
+    | Record<T, K>
+    | Map<T, K>;
+  type list<T extends unknown> = T[] | Set<T>;
+
+  type unsigned<T extends int | float | double | decimal | number> = T;
+  type unix_date = number;
+  type date = Date | string;
+  type resolution_2d<T extends string = string, K extends string = string> =
+    | `${T}X${K}`
+    | `${T}x${K}`
+    | `${T}:${K}`
+    | [number, number];
+  type resolution_3d<
+    T extends string = string,
+    K extends string = string,
+    N extends string = string,
+  > =
+    | `${T}X${K}X${N}`
+    | `${T}x${K}x${N}`
+    | `${T}:${K}:${N}`
+    | [number, number, number];
+  type char_number<T extends number = number> = number | `${T}`;
+  type milliseconds = number;
+  type seconds = number;
+}
 export namespace Signal {
   interface Signal<T, K = T> {
     value: T;
@@ -20,6 +52,7 @@ export namespace Signal {
   interface SignalConfig<T, K> {
     devExpose?: string;
     key?: string;
+    safeValue?: (() => T | K) | T | K;
     asRaw?: (v: T) => K;
     onSet?: (v: T) => void;
     onInit?: (signal: Signal.Signal<T, K>) => void;
@@ -134,7 +167,7 @@ export namespace Fetching {
     immediate?: boolean;
     defaultValue?: T | null;
     key?: string;
-    cacheTimeout?: number;
+    cacheTimeout?: H.milliseconds;
     cacheControl?: HorizonFetchCacheControl;
   }
 
@@ -145,7 +178,7 @@ export namespace Fetching {
 
   interface HorizonFetch<T = unknown> {
     response: Signal.Signal<T | null>;
-    status: number;
+    status: H.int;
     error: boolean;
     fetching: boolean;
     fetch(): Promise<T>;
@@ -157,11 +190,7 @@ export namespace Fetching {
 
   type HorizonFetchMethod = <T = unknown>(
     url: Fetching.URL,
-    options: Fetching.RequestInit<T>,
-  ) => Fetching.PromiseHorizonFetch<T>;
-  type HorizonFetchMethod = <T = unknown>(
-    url: Fetching.URL,
-    options: Fetching.RequestInitCached<T>,
+    options: Fetching.RequestInit<T> | Fetching.RequestInitCached<T>,
   ) => Fetching.PromiseHorizonFetch<T>;
 
   interface CacheControlConfig {
@@ -318,6 +347,12 @@ export namespace Component {
     & AtomLostEventConfig
     & AtomKeypressEventConfig;
 
+  type AtomDynamic = {
+    "#watching"?: Props.OrSignal<unknown>[];
+    "#deepWatching"?: boolean;
+    "#unmountWatching"?: boolean;
+  };
+
   type AtomImgConfig = AtomConfig & {
     alt?: string;
     decoding?: "sync" | "async" | "auto";
@@ -387,7 +422,7 @@ export namespace Component {
     & AtomChangeEventConfig
     & AtomInputEventConfig
     & {
-      "#model"?: Signal.Signal<any>;
+      "#model"?: Signal.Signal<unknown>;
       "#lazy"?: boolean;
       type?:
         | "checkbox"
@@ -417,8 +452,7 @@ export namespace Component {
       required?: Props.OrSignal<boolean>;
       disabled?: Props.OrSignal<boolean>;
       size?: Props.OrSignal<number | string>;
-      autocomplete?: Props.OrSignal<Autocomplete>;
-      autocomplete?: Props.OrSignal<string>;
+      autocomplete?: Props.OrSignal<PropertyKey | Autocomplete>;
     };
 
   interface AtomList<S extends Record<string, any>> {
@@ -430,7 +464,7 @@ export namespace Component {
 
     $(
       type: keyof HTMLElementTagNameMap,
-      props?: Record<string, any> & AtomConfig,
+      props?: Record<string, any> & AtomConfig & AtomDynamic,
       slot?: (node: AtomResponse) => void,
     ): AtomResponse;
 
@@ -438,7 +472,7 @@ export namespace Component {
     input(props?: AtomInputConfig): AtomResponse;
 
     div(
-      props: Record<string, any> & AtomConfig,
+      props: Record<string, any> & AtomConfig & AtomDynamic,
       slot?: (node: AtomResponse) => void,
     ): AtomResponse;
     text(

@@ -372,11 +372,20 @@ async function render<T extends Record<string, any>>(
         }
 
         const vDom = toDom(args[0], props);
+        const node = useComposite(args[0], props);
+        node.dom = vDom.dom;
 
         const index = app.hydCounter;
-        stack.push(async () => {
-          const node = useComposite(args[0], props);
-          node.dom = vDom.dom;
+        const mountRender = async () => {
+          if (isClient) {
+            vDom.dom.innerHTML = "";
+          }
+
+          if (props["#unmountWatching"] ?? true) {
+            node.unmount(true);
+          } else {
+            node.childs = [];
+          }
 
           if (args[2]) {
             await app.lead(node, async () => {
@@ -388,9 +397,29 @@ async function render<T extends Record<string, any>>(
               app.hydCounter = oldCounter;
             });
           }
+        };
+
+        if (props["#watching"]) {
+          for (const state of props["#watching"]) {
+            watch(state, () => {
+              const oldStack = app.stack;
+              app.stack = stack;
+
+              stack.push(async () => {
+                await mountRender();
+              });
+
+              stack.run(true).then(() => app.stack = oldStack);
+            }, { deep: props["#deepWatching"] ?? false });
+          }
+        }
+
+        stack.push(async () => {
+          await mountRender();
 
           app.pipeTo(node, index, parent);
-          app.domPipeTo(vDom.dom, index, { dom: domParent } as any);
+          // @ts-ignore
+          app.domPipeTo(vDom.dom, index, { dom: domParent });
         });
         app.hydCounter += 1;
 

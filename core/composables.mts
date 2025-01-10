@@ -1,4 +1,11 @@
-import type { Composable, CSS, Primitive, Props, Signal } from "../type.d.ts";
+import type {
+  Composable,
+  CSS,
+  H,
+  Primitive,
+  Props,
+  Signal,
+} from "../type.d.ts";
 import { isClient } from "./app.mjs";
 import { toDelay, useId, useStylePrettify } from "./helpers.mjs";
 import { useStack } from "./stack.mjs";
@@ -59,7 +66,7 @@ export const useColorSheme = (
 
 export const useDebounceCallback = (
   watching: Props.OrSignal<any>[],
-  delayMs: number,
+  delayMs: H.milliseconds,
   callback: () => unknown,
 ) => {
   let debounceTimer: number = -1;
@@ -80,26 +87,26 @@ export const useDebounceCallback = (
   return runCallback;
 };
 
-export const useRandomInt = (a: number, b?: number) => {
+export const useRandomInt = (a: H.int, b?: H.int) => {
   const min = b != null ? a : 0;
   const max = b != null ? b - a : a;
   return Math.floor(min + Math.random() * max);
 };
 
-export const useRandomFloat = (a?: number, b?: number) => {
+export const useRandomFloat = (a?: H.float, b?: H.float) => {
   a = a ?? 1;
   const min = b != null ? a : 0;
   const max = b != null ? b - a : a;
   return min + Math.random() * max;
 };
 
-export const useRandomString = (len: number = 10) => {
+export const useRandomString = (len: H.int = 10) => {
   return useId(len) as string;
 };
 
 export const useHistory = <State extends unknown>(
   config: {
-    length?: number;
+    length?: H.int;
     listen?: Signal.Signal<State>;
     keepName?: string;
   } = {},
@@ -190,7 +197,7 @@ export const useFriction = (
   config: {
     setup: (controller: AbortController) => unknown;
     abort?: () => void;
-    debounce?: number;
+    debounce?: H.milliseconds;
     immediate?: boolean;
   },
 ) => {
@@ -300,8 +307,8 @@ export const useTransport = <T extends Primitive.LikeProxy>(
 };
 
 interface ProcessConfig {
-  at?: string | number;
-  period?: number | string;
+  at?: string | H.milliseconds;
+  period?: H.milliseconds | string;
 }
 
 interface Process<T> extends Promise<T> {
@@ -360,7 +367,7 @@ export const useProcess = (
 
 export const useParallel = async (threads: object | Function[]) => {
   const task = useStack();
-  let output = {} as Record<any, unknown>;
+  let output = {} as Record<string, unknown>;
   task.fill(
     Object.entries(threads).map(([index, task]) => {
       return async () => output[index] = await task();
@@ -528,10 +535,14 @@ export const useTrigger = (handle: (push: Function) => void): TriggerSignal => {
 
 export const useLocalStorage = <T extends any>(
   key: string,
-  { defaultValue = null as T }: { defaultValue?: T } = {},
+  { defaultValue = null as T, safeValue }: {
+    defaultValue?: T;
+    safeValue?: Signal.SignalConfig<T, T>["safeValue"];
+  } = {},
 ) => {
   return useSignal<T>(defaultValue, {
     key,
+    safeValue,
     onInit(signal) {
       if (isClient) {
         watch(signal, (v) => localStorage.setItem(key, JSON.stringify(v)), {

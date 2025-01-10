@@ -79,6 +79,13 @@ export const useSignal = <T extends unknown, K = T>(
   let parentSetter = (v: T) => {};
   let safeMode = true;
 
+  const _safeValue = config.safeValue ?? fakeNull;
+  const safeValue = () => {
+    return typeof _safeValue === "function"
+      ? (_safeValue as any)()
+      : _safeValue;
+  };
+
   const signal = {
     toString() {
       return signal.asRaw;
@@ -117,7 +124,7 @@ export const useSignal = <T extends unknown, K = T>(
     get value() {
       safeMode = true;
       // @ts-ignore
-      const rawValue = (value ?? fakeNull).asWeakRef({
+      const rawValue = (value ?? safeValue()).asWeakRef({
         value: () => value,
         set: (v: T) => signal.value = v,
         path: "$",
@@ -171,7 +178,7 @@ export const useSignal = <T extends unknown, K = T>(
           return () => JSON.stringify(raw);
         }
         if (p in target) {
-          const rawValue = target[p] ?? (safeMode ? "null" : null);
+          const rawValue = target[p] ?? (safeMode ? safeValue() : null);
           return rawValue != null
             ? rawValue.asWeakRef({
               value: () => target[p],
